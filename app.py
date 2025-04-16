@@ -262,6 +262,119 @@ def dashboard():
         flash('An error occurred. Please try again.', 'danger')
         return redirect(url_for('login'))
 
+# User Profile Routes
+@app.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    user_id = ObjectId(session['user_id'])
+    user = users.find_one({'_id': user_id})
+    
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        try:
+            # Common fields for all user types
+            name = request.form.get('name', '').strip()
+            email = request.form.get('email', '').strip().lower()
+            
+            # Validate required fields
+            if not all([name, email]):
+                flash('Name and email are required fields.', 'danger')
+                return redirect(url_for('edit_profile'))
+            
+            # Check if email is changed and already exists
+            if email != user['email']:
+                existing_user = users.find_one({'email': email, '_id': {'$ne': user_id}})
+                if existing_user:
+                    flash('Email already in use by another account.', 'danger')
+                    return redirect(url_for('edit_profile'))
+            
+            # Prepare update data
+            update_data = {
+                'name': name,
+                'email': email,
+                'updated_at': datetime.now()
+            }
+            
+            # Handle user type specific fields
+            if user['role'] == 'participant':
+                skills_input = request.form.get('skills', '').strip()
+                skills = [skill.strip() for skill in skills_input.split(',') if skill.strip()]
+                update_data['skills'] = skills
+                
+                # Optional fields
+                bio = request.form.get('bio', '').strip()
+                github = request.form.get('github', '').strip()
+                linkedin = request.form.get('linkedin', '').strip()
+                
+                if bio:
+                    update_data['bio'] = bio
+                if github:
+                    update_data['github'] = github
+                if linkedin:
+                    update_data['linkedin'] = linkedin
+                    
+            elif user['role'] == 'organizer':
+                organization = request.form.get('organization', '').strip()
+                bio = request.form.get('bio', '').strip()
+                
+                if not organization:
+                    flash('Organization name is required for organizers.', 'danger')
+                    return redirect(url_for('edit_profile'))
+                
+                update_data['organization'] = organization
+                update_data['bio'] = bio
+                
+                # Optional fields
+                website = request.form.get('website', '').strip()
+                if website:
+                    update_data['website'] = website
+            
+            # Update password if provided
+            current_password = request.form.get('current_password', '')
+            new_password = request.form.get('new_password', '')
+            confirm_password = request.form.get('confirm_password', '')
+            
+            if current_password and new_password:
+                if not check_password_hash(user['password'], current_password):
+                    flash('Current password is incorrect.', 'danger')
+                    return redirect(url_for('edit_profile'))
+                
+                if new_password != confirm_password:
+                    flash('New passwords do not match.', 'danger')
+                    return redirect(url_for('edit_profile'))
+                
+                update_data['password'] = generate_password_hash(new_password)
+            
+            # Handle profile image upload
+            if 'profile_image' in request.files and request.files['profile_image'].filename:
+                profile_image = request.files['profile_image']
+                if profile_image and allowed_file(profile_image.filename, ['jpg', 'jpeg', 'png']):
+                    filename = secure_filename(profile_image.filename)
+                    unique_filename = f"profile_{user_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                    profile_image.save(file_path)
+                    update_data['profile_image'] = unique_filename
+            
+            # Update user in database
+            users.update_one({'_id': user_id}, {'$set': update_data})
+            
+            # Update session data
+            session['user_name'] = name
+            session['user_email'] = email
+            
+            flash('Profile updated successfully!', 'success')
+            return redirect(url_for('dashboard'))
+            
+        except Exception as e:
+            print(f"Profile update error: {str(e)}")
+            flash('An error occurred while updating your profile.', 'danger')
+            return redirect(url_for('edit_profile'))
+    
+    return render_template('edit_profile.html', user=user)
+
 # Hackathon Routes
 @app.route('/list_hackathons')
 def list_hackathons():

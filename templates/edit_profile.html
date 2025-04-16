@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Profile | HackHub{% endblock %}
+
+{% block extra_head %}
+<style>
+    .profile-header {
+        background: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%);
+        padding: 3rem 0;
+        color: white;
+        border-radius: 0 0 20px 20px;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+    
+    .profile-form-card {
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+    }
+    
+    .form-section {
+        margin-bottom: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .form-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    
+    .form-section-title {
+        position: relative;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+    }
+    
+    .form-section-title::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 50px;
+        height: 3px;
+        background: linear-gradient(90deg, #6B73FF 0%, #000DFF 100%);
+    }
+    
+    .profile-image-container {
+        position: relative;
+        width: 150px;
+        height: 150px;
+        margin: 0 auto 1.5rem;
+    }
+    
+    .profile-image {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 5px solid white;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .profile-image-placeholder {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        color: #6c757d;
+        border: 5px solid white;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .profile-image-upload {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 40px;
+        height: 40px;
+        background: #0d6efd;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+    
+    .profile-image-upload:hover {
+        background: #0b5ed7;
+    }
+    
+    .profile-image-upload input {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Profile Header -->
+<div class="profile-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <h1 class="display-5 fw-bold mb-2">Edit Your Profile</h1>
+                <p class="lead mb-0">Update your personal information and preferences</p>
+            </div>
+            <div class="col-lg-4 text-lg-end">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-light">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="profile-form-card card">
+                <div class="card-body p-4 p-md-5">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <form method="POST" enctype="multipart/form-data">
+                        <!-- Profile Image Section -->
+                        <div class="text-center mb-4">
+                            <div class="profile-image-container">
+                                {% if user.profile_image %}
+                                <img src="{{ url_for('static', filename='uploads/' + user.profile_image) }}" alt="{{ user.name }}" class="profile-image">
+                                {% else %}
+                                <div class="profile-image-placeholder">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                {% endif %}
+                                <label for="profile_image" class="profile-image-upload">
+                                    <i class="fas fa-camera"></i>
+                                    <input type="file" id="profile_image" name="profile_image" accept="image/*">
+                                </label>
+                            </div>
+                            <p class="text-muted small">Click the camera icon to upload a new profile picture</p>
+                        </div>
+                        
+                        <!-- Basic Information Section -->
+                        <div class="form-section">
+                            <h4 class="form-section-title">Basic Information</h4>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="name" class="form-label">Full Name *</label>
+                                    <input type="text" class="form-control" id="name" name="name" value="{{ user.name }}" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="email" class="form-label">Email Address *</label>
+                                    <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+                                </div>
+                            </div>
+                            
+                            {% if user.role == 'participant' %}
+                            <!-- Participant Specific Fields -->
+                            <div class="mb-3">
+                                <label for="skills" class="form-label">Skills (comma-separated)</label>
+                                <input type="text" class="form-control" id="skills" name="skills" value="{{ user.skills|join(', ') if user.skills else '' }}">
+                                <div class="form-text">List your technical skills, separated by commas (e.g., Python, JavaScript, Machine Learning)</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="bio" class="form-label">Bio</label>
+                                <textarea class="form-control" id="bio" name="bio" rows="3">{{ user.bio if user.bio else '' }}</textarea>
+                                <div class="form-text">Tell us about yourself, your experience and interests</div>
+                            </div>
+                            {% elif user.role == 'organizer' %}
+                            <!-- Organizer Specific Fields -->
+                            <div class="mb-3">
+                                <label for="organization" class="form-label">Organization Name *</label>
+                                <input type="text" class="form-control" id="organization" name="organization" value="{{ user.organization }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="bio" class="form-label">Organization Bio</label>
+                                <textarea class="form-control" id="bio" name="bio" rows="3">{{ user.bio if user.bio else '' }}</textarea>
+                                <div class="form-text">Describe your organization and its mission</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="website" class="form-label">Website</label>
+                                <input type="url" class="form-control" id="website" name="website" value="{{ user.website if user.website else '' }}">
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Social Links Section -->
+                        {% if user.role == 'participant' %}
+                        <div class="form-section">
+                            <h4 class="form-section-title">Social Links</h4>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="github" class="form-label">GitHub Profile</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fab fa-github"></i></span>
+                                        <input type="url" class="form-control" id="github" name="github" value="{{ user.github if user.github else '' }}" placeholder="https://github.com/username">
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="linkedin" class="form-label">LinkedIn Profile</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fab fa-linkedin"></i></span>
+                                        <input type="url" class="form-control" id="linkedin" name="linkedin" value="{{ user.linkedin if user.linkedin else '' }}" placeholder="https://linkedin.com/in/username">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Change Password Section -->
+                        <div class="form-section">
+                            <h4 class="form-section-title">Change Password</h4>
+                            <p class="text-muted mb-3">Leave these fields blank if you don't want to change your password</p>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="current_password" class="form-label">Current Password</label>
+                                    <input type="password" class="form-control" id="current_password" name="current_password">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="new_password" class="form-label">New Password</label>
+                                    <input type="password" class="form-control" id="new_password" name="new_password">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="confirm_password" class="form-label">Confirm New Password</label>
+                                    <input type="password" class="form-control" id="confirm_password" name="confirm_password">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Preview profile image before upload
+    document.addEventListener('DOMContentLoaded', function() {
+        const profileImageInput = document.getElementById('profile_image');
+        const profileImage = document.querySelector('.profile-image');
+        const profileImagePlaceholder = document.querySelector('.profile-image-placeholder');
+        
+        profileImageInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    // Create image if it doesn't exist
+                    if (!profileImage) {
+                        const newImage = document.createElement('img');
+                        newImage.classList.add('profile-image');
+                        newImage.alt = "Profile Preview";
+                        
+                        if (profileImagePlaceholder) {
+                            profileImagePlaceholder.style.display = 'none';
+                            profileImagePlaceholder.parentNode.insertBefore(newImage, profileImagePlaceholder);
+                        }
+                        
+                        newImage.src = e.target.result;
+                    } else {
+                        profileImage.src = e.target.result;
+                        
+                        if (profileImagePlaceholder) {
+                            profileImagePlaceholder.style.display = 'none';
+                        }
+                    }
+                };
+                
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+    });
+</script>
+{% endblock %}
