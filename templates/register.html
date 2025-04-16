@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Login | HackHub{% endblock %}
+{% block title %}Register | HackHub{% endblock %}
 
 {% block content %}
 <div class="page-header">
     <div class="container">
         <div class="row">
             <div class="col-12 text-center">
-                <h1>Login to Your Account</h1>
-                <p class="lead">Access your dashboard and start your hackathon journey</p>
+                <h1>Create Your Account</h1>
+                <p class="lead">Join our community and participate in exciting hackathons</p>
             </div>
         </div>
     </div>
@@ -17,7 +17,7 @@
 <section class="py-5">
     <div class="container">
         <div class="row justify-content-center">
-            <div class="col-lg-5 col-md-8">
+            <div class="col-lg-6 col-md-8">
                 <div class="card shadow">
                     <div class="card-body p-5">
                         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -31,7 +31,11 @@
                             {% endif %}
                         {% endwith %}
                         
-                        <form method="POST" action="{{ url_for('login') }}">
+                        <form method="POST" action="{{ url_for('register') }}">
+                            <div class="mb-4">
+                                <label for="name" class="form-label">Full Name</label>
+                                <input type="text" class="form-control" id="name" name="name" required>
+                            </div>
                             <div class="mb-4">
                                 <label for="email" class="form-label">Email Address</label>
                                 <input type="email" class="form-control" id="email" name="email" required>
@@ -40,16 +44,20 @@
                                 <label for="password" class="form-label">Password</label>
                                 <input type="password" class="form-control" id="password" name="password" required>
                             </div>
-                            <div class="mb-4 form-check">
-                                <input type="checkbox" class="form-check-input" id="remember" name="remember">
-                                <label class="form-check-label" for="remember">Remember me</label>
+                            <div class="mb-4">
+                                <label for="skills" class="form-label">Skills (comma-separated)</label>
+                                <input type="text" class="form-control" id="skills" name="skills" required 
+                                    placeholder="e.g., Python, JavaScript, Machine Learning">
+                                <div class="form-text text-muted">
+                                    List your technical skills, separated by commas
+                                </div>
                             </div>
                             <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-primary btn-lg">Login</button>
+                                <button type="submit" class="btn btn-primary btn-lg">Create Account</button>
                             </div>
                         </form>
                         <div class="text-center mt-4">
-                            <p class="mb-0">Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
+                            <p class="mb-0">Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
                         </div>
                     </div>
                 </div>

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | HackHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <h1>Welcome, {{ user.name }}!</h1>
+                <p class="lead">Manage your hackathon journey</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <!-- User Profile -->
+            <div class="col-lg-4 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Profile</h5>
+                        <p><strong>Name:</strong> {{ user.name }}</p>
+                        <p><strong>Email:</strong> {{ user.email }}</p>
+                        <p><strong>Role:</strong> {{ user.role|title }}</p>
+                        <p><strong>Skills:</strong></p>
+                        <div class="mb-3">
+                            {% for skill in user.skills %}
+                            <span class="badge bg-primary me-1 mb-1">{{ skill }}</span>
+                            {% endfor %}
+                        </div>
+                        <a href="#" class="btn btn-primary">Edit Profile</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notifications -->
+            <div class="col-lg-8 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Notifications</h5>
+                        {% if notifications %}
+                            {% for notification in notifications %}
+                                <div class="alert alert-info">
+                                    <h6>{{ notification.title }}</h6>
+                                    <p class="mb-0">{{ notification.message }}</p>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted">No new notifications</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="col-12">
+                <div class="row">
+                    <div class="col-lg-4 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-search fa-3x text-primary mb-3"></i>
+                                <h5 class="card-title">Find Hackathons</h5>
+                                <p class="card-text">Discover upcoming hackathons and register to participate.</p>
+                                <a href="{{ url_for('list_hackathons') }}" class="btn btn-primary">Browse Hackathons</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                                <h5 class="card-title">My Teams</h5>
+                                <p class="card-text">View and manage your hackathon teams.</p>
+                                <a href="#" class="btn btn-primary">View Teams</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-project-diagram fa-3x text-primary mb-3"></i>
+                                <h5 class="card-title">My Projects</h5>
+                                <p class="card-text">Access your hackathon project submissions.</p>
+                                <a href="#" class="btn btn-primary">View Projects</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

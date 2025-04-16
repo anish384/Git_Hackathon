@@ -9,9 +9,17 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.config["MONGO_URI"] = "mongodb://localhost:27017/hackathon_db"
-app.secret_key = os.urandom(24)
+app.secret_key = 'your-secret-key-here'  # Fixed secret key instead of random
 
-mongo = PyMongo(app)
+# Initialize MongoDB
+try:
+    mongo = PyMongo(app)
+    # Test the connection
+    mongo.db.command('ping')
+    print("MongoDB connection successful!")
+except Exception as e:
+    print(f"MongoDB connection error: {str(e)}")
+    raise e
 
 # Database collections
 users = mongo.db.users
@@ -33,85 +41,142 @@ def index():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        existing_user = users.find_one({'email': request.form['email']})
-        
-        if existing_user is None:
-            hashed_password = generate_password_hash(request.form['password'])
-            users.insert_one({
-                'name': request.form['name'],
-                'email': request.form['email'],
-                'password': hashed_password,
+        try:
+            # Get and validate form data
+            name = request.form.get('name', '').strip()
+            email = request.form.get('email', '').strip().lower()
+            password = request.form.get('password', '')
+            skills_input = request.form.get('skills', '').strip()
+            
+            # Validate required fields
+            if not all([name, email, password]):
+                flash('All fields are required.', 'danger')
+                return redirect(url_for('register'))
+            
+            # Check if user already exists
+            existing_user = users.find_one({'email': email})
+            if existing_user:
+                flash('Email already exists. Please login.', 'danger')
+                return redirect(url_for('login'))
+            
+            # Process skills
+            skills = [skill.strip() for skill in skills_input.split(',') if skill.strip()]
+            if not skills:
+                flash('Please enter at least one skill.', 'danger')
+                return redirect(url_for('register'))
+            
+            # Create new user
+            new_user = {
+                'name': name,
+                'email': email,
+                'password': generate_password_hash(password),
                 'role': 'participant',
-                'skills': request.form['skills'].split(','),
+                'skills': skills,
                 'created_at': datetime.now()
-            })
-            flash('Registration successful! Please log in.', 'success')
+            }
+            
+            print(f"Attempting to insert user: {name} ({email})")
+            result = users.insert_one(new_user)
+            
+            if not result.inserted_id:
+                flash('Registration failed. Please try again.', 'danger')
+                return redirect(url_for('register'))
+            
+            user_id = result.inserted_id
+            print(f"User created with ID: {user_id}")
+            
+            # Create welcome notification
+            try:
+                notifications.insert_one({
+                    'user_id': user_id,
+                    'title': 'Welcome to HackHub!',
+                    'message': f'Welcome {name}! Your account has been created successfully.',
+                    'read': False,
+                    'created_at': datetime.now()
+                })
+            except Exception as e:
+                print(f"Notification creation error: {str(e)}")
+                # Don't redirect here, continue with registration success
+            
+            flash('Registration successful! Please login.', 'success')
             return redirect(url_for('login'))
-        
-        flash('Email already exists. Please log in.', 'danger')
-        return redirect(url_for('login'))
+            
+        except Exception as e:
+            print(f"Registration error: {str(e)}")
+            flash('An error occurred during registration. Please try again.', 'danger')
+            return redirect(url_for('register'))
     
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        user = users.find_one({'email': request.form['email']})
-        
-        if user and check_password_hash(user['password'], request.form['password']):
-            session['user_id'] = str(user['_id'])
-            session['user_role'] = user['role']
-            session['user_name'] = user['name']
+        try:
+            email = request.form.get('email', '').strip().lower()
+            password = request.form.get('password', '')
             
-            flash('Login successful!', 'success')
-            return redirect(url_for('dashboard'))
-        
-        flash('Invalid email or password', 'danger')
+            if not all([email, password]):
+                flash('Email and password are required.', 'danger')
+                return redirect(url_for('login'))
+            
+            user = users.find_one({'email': email})
+            print(f"Login attempt for email: {email}")
+            
+            if user and check_password_hash(user['password'], password):
+                session['user_id'] = str(user['_id'])
+                session['user_role'] = user.get('role', 'participant')
+                session['user_name'] = user['name']
+                print(f"Login successful for user: {user['name']}")
+                flash('Login successful!', 'success')
+                return redirect(url_for('dashboard'))
+            else:
+                print(f"Login failed for email: {email}")
+                flash('Invalid email or password.', 'danger')
+                return redirect(url_for('login'))
+                
+        except Exception as e:
+            print(f"Login error: {str(e)}")
+            flash('An error occurred during login. Please try again.', 'danger')
+            return redirect(url_for('login'))
     
     return render_template('login.html')
 
 @app.route('/logout')
 def logout():
     session.clear()
+    flash('You have been logged out.', 'info')
     return redirect(url_for('index'))
 
 # Dashboard Routes
 @app.route('/dashboard')
 def dashboard():
     if 'user_id' not in session:
+        flash('Please login to access the dashboard.', 'warning')
         return redirect(url_for('login'))
     
-    user_id = session['user_id']
-    user = users.find_one({'_id': ObjectId(user_id)})
-    
-    if user['role'] == 'admin':
-        # Admin dashboard
-        user_hackathons = list(hackathons.find({'organizer_id': ObjectId(user_id)}))
-        return render_template('admin_dashboard.html', hackathons=user_hackathons, user=user)
-    
-    elif user['role'] == 'judge':
-        # Judge dashboard
-        assigned_hackathons = list(hackathons.find({'judges': ObjectId(user_id)}))
-        return render_template('judge_dashboard.html', hackathons=assigned_hackathons, user=user)
-    
-    else:
-        # Participant dashboard
-        user_teams = list(teams.find({'members': ObjectId(user_id)}))
-        team_ids = [team['_id'] for team in user_teams]
-        user_projects = list(projects.find({'team_id': {'$in': team_ids}}))
-        user_hackathons = []
+    try:
+        user_id = ObjectId(session['user_id'])
+        user = users.find_one({'_id': user_id})
         
-        for team in user_teams:
-            if 'hackathon_id' in team:
-                hackathon = hackathons.find_one({'_id': team['hackathon_id']})
-                if hackathon:
-                    user_hackathons.append(hackathon)
+        if not user:
+            session.clear()
+            flash('User not found. Please login again.', 'danger')
+            return redirect(url_for('login'))
         
-        return render_template('participant_dashboard.html', 
-                              teams=user_teams, 
-                              projects=user_projects, 
-                              hackathons=user_hackathons, 
-                              user=user)
+        # Get user's notifications
+        user_notifications = list(notifications.find({
+            'user_id': user_id,
+            'read': False
+        }).sort('created_at', -1))
+        
+        return render_template('dashboard.html', 
+                             user=user, 
+                             notifications=user_notifications)
+                             
+    except Exception as e:
+        print(f"Dashboard error: {str(e)}")
+        flash('An error occurred. Please try again.', 'danger')
+        return redirect(url_for('login'))
 
 # Hackathon Routes
 @app.route('/hackathons')
@@ -145,9 +210,14 @@ def create_hackathon():
             'themes': request.form['themes'].split(',') if request.form['themes'] else []
         }
         
-        hackathon_id = hackathons.insert_one(new_hackathon).inserted_id
-        flash('Hackathon created successfully!', 'success')
-        return redirect(url_for('hackathon_detail', hackathon_id=hackathon_id))
+        try:
+            hackathon_id = hackathons.insert_one(new_hackathon).inserted_id
+            flash('Hackathon created successfully!', 'success')
+            return redirect(url_for('hackathon_detail', hackathon_id=hackathon_id))
+        except Exception as e:
+            flash('An error occurred during hackathon creation. Please try again.', 'danger')
+            print(f"Hackathon creation error: {str(e)}")
+            return redirect(url_for('create_hackathon'))
     
     return render_template('create_hackathon.html')
 
@@ -188,22 +258,26 @@ def edit_hackathon(hackathon_id):
         start_date = datetime.strptime(request.form['start_date'], '%Y-%m-%d')
         end_date = datetime.strptime(request.form['end_date'], '%Y-%m-%d')
         
-        hackathons.update_one(
-            {'_id': ObjectId(hackathon_id)},
-            {'$set': {
-                'title': request.form['title'],
-                'description': request.form['description'],
-                'start_date': start_date,
-                'end_date': end_date,
-                'location': request.form['location'],
-                'max_team_size': int(request.form['max_team_size']),
-                'status': request.form['status'],
-                'themes': request.form['themes'].split(',') if request.form['themes'] else []
-            }}
-        )
-        
-        flash('Hackathon updated successfully!', 'success')
-        return redirect(url_for('hackathon_detail', hackathon_id=hackathon_id))
+        try:
+            hackathons.update_one(
+                {'_id': ObjectId(hackathon_id)},
+                {'$set': {
+                    'title': request.form['title'],
+                    'description': request.form['description'],
+                    'start_date': start_date,
+                    'end_date': end_date,
+                    'location': request.form['location'],
+                    'max_team_size': int(request.form['max_team_size']),
+                    'status': request.form['status'],
+                    'themes': request.form['themes'].split(',') if request.form['themes'] else []
+                }}
+            )
+            flash('Hackathon updated successfully!', 'success')
+            return redirect(url_for('hackathon_detail', hackathon_id=hackathon_id))
+        except Exception as e:
+            flash('An error occurred during hackathon update. Please try again.', 'danger')
+            print(f"Hackathon update error: {str(e)}")
+            return redirect(url_for('edit_hackathon', hackathon_id=hackathon_id))
     
     return render_template('edit_hackathon.html', hackathon=hackathon)
 
@@ -240,24 +314,29 @@ def create_team(hackathon_id):
             'looking_for_members': True if request.form.get('looking_for_members') else False
         }
         
-        team_id = teams.insert_one(new_team).inserted_id
-        
-        # Create a default project for the team
-        new_project = {
-            'title': f"{new_team['name']}'s Project",
-            'description': 'Project description here',
-            'team_id': team_id,
-            'hackathon_id': ObjectId(hackathon_id),
-            'tech_stack': [],
-            'github_link': '',
-            'created_at': datetime.now(),
-            'status': 'planning'
-        }
-        
-        projects.insert_one(new_project)
-        
-        flash('Team created successfully!', 'success')
-        return redirect(url_for('team_detail', team_id=team_id))
+        try:
+            team_id = teams.insert_one(new_team).inserted_id
+            
+            # Create a default project for the team
+            new_project = {
+                'title': f"{new_team['name']}'s Project",
+                'description': 'Project description here',
+                'team_id': team_id,
+                'hackathon_id': ObjectId(hackathon_id),
+                'tech_stack': [],
+                'github_link': '',
+                'created_at': datetime.now(),
+                'status': 'planning'
+            }
+            
+            projects.insert_one(new_project)
+            
+            flash('Team created successfully!', 'success')
+            return redirect(url_for('team_detail', team_id=team_id))
+        except Exception as e:
+            flash('An error occurred during team creation. Please try again.', 'danger')
+            print(f"Team creation error: {str(e)}")
+            return redirect(url_for('create_team', hackathon_id=hackathon_id))
     
     return render_template('create_team.html', hackathon=hackathon)
 
@@ -311,13 +390,17 @@ def join_team(team_id):
         return redirect(url_for('team_detail', team_id=team_id))
     
     # Add user to team
-    teams.update_one(
-        {'_id': ObjectId(team_id)},
-        {'$push': {'members': ObjectId(session['user_id'])}}
-    )
-    
-    flash('You have joined the team successfully!', 'success')
-    return redirect(url_for('team_detail', team_id=team_id))
+    try:
+        teams.update_one(
+            {'_id': ObjectId(team_id)},
+            {'$push': {'members': ObjectId(session['user_id'])}}
+        )
+        flash('You have joined the team successfully!', 'success')
+        return redirect(url_for('team_detail', team_id=team_id))
+    except Exception as e:
+        flash('An error occurred during team join. Please try again.', 'danger')
+        print(f"Team join error: {str(e)}")
+        return redirect(url_for('team_detail', team_id=team_id))
 
 # Project Routes
 @app.route('/teams/<team_id>/project/edit', methods=['GET', 'POST'])
@@ -342,19 +425,23 @@ def edit_project(team_id):
         return redirect(url_for('team_detail', team_id=team_id))
     
     if request.method == 'POST':
-        projects.update_one(
-            {'_id': project['_id']},
-            {'$set': {
-                'title': request.form['title'],
-                'description': request.form['description'],
-                'tech_stack': request.form['tech_stack'].split(',') if request.form['tech_stack'] else [],
-                'github_link': request.form['github_link'],
-                'status': request.form['status']
-            }}
-        )
-        
-        flash('Project updated successfully!', 'success')
-        return redirect(url_for('team_detail', team_id=team_id))
+        try:
+            projects.update_one(
+                {'_id': project['_id']},
+                {'$set': {
+                    'title': request.form['title'],
+                    'description': request.form['description'],
+                    'tech_stack': request.form['tech_stack'].split(',') if request.form['tech_stack'] else [],
+                    'github_link': request.form['github_link'],
+                    'status': request.form['status']
+                }}
+            )
+            flash('Project updated successfully!', 'success')
+            return redirect(url_for('team_detail', team_id=team_id))
+        except Exception as e:
+            flash('An error occurred during project update. Please try again.', 'danger')
+            print(f"Project update error: {str(e)}")
+            return redirect(url_for('edit_project', team_id=team_id))
     
     return render_template('edit_project.html', project=project, team=team)
 
@@ -399,16 +486,21 @@ def submit_project(team_id):
             'status': 'pending'
         }
         
-        submissions.insert_one(new_submission)
-        
-        # Update project status
-        projects.update_one(
-            {'_id': project['_id']},
-            {'$set': {'status': 'submitted'}}
-        )
-        
-        flash('Project submitted successfully!', 'success')
-        return redirect(url_for('team_detail', team_id=team_id))
+        try:
+            submissions.insert_one(new_submission)
+            
+            # Update project status
+            projects.update_one(
+                {'_id': project['_id']},
+                {'$set': {'status': 'submitted'}}
+            )
+            
+            flash('Project submitted successfully!', 'success')
+            return redirect(url_for('team_detail', team_id=team_id))
+        except Exception as e:
+            flash('An error occurred during project submission. Please try again.', 'danger')
+            print(f"Project submission error: {str(e)}")
+            return redirect(url_for('submit_project', team_id=team_id))
     
     return render_template('submit_project.html', project=project, team=team, hackathon=hackathon)
 
@@ -451,21 +543,26 @@ def add_judge(hackathon_id):
         
         # Add judge to hackathon if not already added
         if judge_id not in hackathon.get('judges', []):
-            hackathons.update_one(
-                {'_id': ObjectId(hackathon_id)},
-                {'$push': {'judges': judge_id}}
-            )
-            
-            # Create notification for the judge
-            notifications.insert_one({
-                'user_id': judge_id,
-                'title': f"You've been added as a judge",
-                'message': f"You've been added as a judge for the hackathon: {hackathon['title']}",
-                'read': False,
-                'created_at': datetime.now()
-            })
-            
-            flash('Judge added successfully!', 'success')
+            try:
+                hackathons.update_one(
+                    {'_id': ObjectId(hackathon_id)},
+                    {'$push': {'judges': judge_id}}
+                )
+                
+                # Create notification for the judge
+                notifications.insert_one({
+                    'user_id': judge_id,
+                    'title': f"You've been added as a judge",
+                    'message': f"You've been added as a judge for the hackathon: {hackathon['title']}",
+                    'read': False,
+                    'created_at': datetime.now()
+                })
+                
+                flash('Judge added successfully!', 'success')
+            except Exception as e:
+                flash('An error occurred during judge addition. Please try again.', 'danger')
+                print(f"Judge addition error: {str(e)}")
+                return redirect(url_for('add_judge', hackathon_id=hackathon_id))
         else:
             flash('This judge is already assigned to this hackathon', 'warning')
         
@@ -524,19 +621,24 @@ def evaluate_submission(submission_id):
             'created_at': datetime.now()
         }
         
-        if existing_evaluation:
-            # Update existing evaluation
-            evaluations.update_one(
-                {'_id': existing_evaluation['_id']},
-                {'$set': evaluation_data}
-            )
-            flash('Evaluation updated successfully!', 'success')
-        else:
-            # Create new evaluation
-            evaluations.insert_one(evaluation_data)
-            flash('Evaluation submitted successfully!', 'success')
-        
-        return redirect(url_for('dashboard'))
+        try:
+            if existing_evaluation:
+                # Update existing evaluation
+                evaluations.update_one(
+                    {'_id': existing_evaluation['_id']},
+                    {'$set': evaluation_data}
+                )
+                flash('Evaluation updated successfully!', 'success')
+            else:
+                # Create new evaluation
+                evaluations.insert_one(evaluation_data)
+                flash('Evaluation submitted successfully!', 'success')
+            
+            return redirect(url_for('dashboard'))
+        except Exception as e:
+            flash('An error occurred during evaluation submission. Please try again.', 'danger')
+            print(f"Evaluation submission error: {str(e)}")
+            return redirect(url_for('evaluate_submission', submission_id=submission_id))
     
     return render_template('evaluate_submission.html', 
                           submission=submission, 
