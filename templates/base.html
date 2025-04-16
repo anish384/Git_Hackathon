@@ -277,9 +277,15 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('index') }}">Home</a>
                     </li>
+                    {% if session.user_role == 'organizer' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('my_hackathons') }}">My Hackathons</a>
+                    </li>
+                    {% else %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('list_hackathons') }}">Hackathons</a>
                     </li>
+                    {% endif %}
                     {% if session.user_id %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>

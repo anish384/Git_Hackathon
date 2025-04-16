@@ -77,10 +77,140 @@
                                     <div class="form-text">Set clear rules and guidelines for participants</div>
                                 </div>
                                 
+                                <!-- Hackathon Type Selection -->
+                                <div class="col-md-12 mb-4">
+                                    <label class="form-label">Hackathon Type *</label>
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <div class="form-check mb-3">
+                                                <input class="form-check-input" type="radio" name="hackathon_type" id="type_detailed" value="detailed" checked>
+                                                <label class="form-check-label" for="type_detailed">
+                                                    <strong>Detailed Problem Statement</strong>
+                                                    <p class="text-muted mb-0">Participants work on specific problems defined by you. You provide detailed requirements and evaluation criteria.</p>
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="hackathon_type" id="type_open" value="open">
+                                                <label class="form-check-label" for="type_open">
+                                                    <strong>Open Selection</strong>
+                                                    <p class="text-muted mb-0">Participants choose their own problems within your defined themes. More creative freedom for participants.</p>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Problem Statement Section (for Detailed Problem type) -->
+                                <div class="col-md-12 mb-4" id="problem_statement_section">
+                                    <label class="form-label">Problem Statement *</label>
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <div id="problems-container">
+                                                <!-- Problem template will be added here dynamically -->
+                                                <div class="problem-item mb-3 p-3 border rounded">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <h6 class="mb-0">Problem 1</h6>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger remove-problem" disabled>
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <input type="text" class="form-control mb-2" name="problem_titles[]" placeholder="Problem Title" required>
+                                                        <textarea class="form-control" name="problem_descriptions[]" rows="3" placeholder="Detailed description of the problem" required></textarea>
+                                                    </div>
+                                                    <div class="row">
+                                                        <div class="col-md-6 mb-2">
+                                                            <input type="text" class="form-control" name="problem_requirements[]" placeholder="Requirements (comma-separated)">
+                                                        </div>
+                                                        <div class="col-md-6 mb-2">
+                                                            <input type="text" class="form-control" name="problem_constraints[]" placeholder="Constraints (comma-separated)">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <button type="button" id="add-problem" class="btn btn-sm btn-outline-primary mt-2">
+                                                <i class="fas fa-plus me-1"></i> Add Another Problem
+                                            </button>
+                                            
+                                            <input type="hidden" id="problem-count" name="problem_count" value="1">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Open Selection Themes (for Open Selection type) -->
+                                <div class="col-md-12 mb-4" id="open_selection_section" style="display: none;">
+                                    <label class="form-label">Themes & Guidelines *</label>
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label class="form-label">Theme Areas</label>
+                                                <input type="text" class="form-control" name="open_themes" placeholder="e.g., Healthcare, Education, Environment, Finance (comma-separated)">
+                                                <div class="form-text">Define broad themes that participants can choose from</div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Selection Criteria</label>
+                                                <textarea class="form-control" name="selection_criteria" rows="3" placeholder="Criteria for evaluating participant-chosen problems"></textarea>
+                                                <div class="form-text">Define how you'll evaluate the problems chosen by participants</div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Submission Requirements</label>
+                                                <textarea class="form-control" name="submission_requirements" rows="3" placeholder="What participants need to submit along with their chosen problem"></textarea>
+                                                <div class="form-text">Define what participants need to include when submitting their chosen problem</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
                                 <div class="col-md-12 mb-4">
                                     <label class="form-label">Prizes</label>
                                     <textarea class="form-control" id="prizes" name="prizes" rows="3"></textarea>
                                     <div class="form-text">Describe the prizes for winners (optional)</div>
+                                </div>
+                                
+                                <!-- Hackathon Levels Section -->
+                                <div class="col-md-12 mb-4">
+                                    <label class="form-label">Hackathon Levels</label>
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <p class="text-muted mb-3">Define the levels or stages of your hackathon (e.g., Qualification, Semi-Finals, Finals)</p>
+                                            
+                                            <div id="levels-container">
+                                                <!-- Level template will be added here dynamically -->
+                                                <div class="level-item mb-3 p-3 border rounded">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <h6 class="mb-0">Level 1</h6>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger remove-level" disabled>
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div class="row">
+                                                        <div class="col-md-6 mb-2">
+                                                            <input type="text" class="form-control" name="level_names[]" placeholder="Level Name" value="Qualification Round" required>
+                                                        </div>
+                                                        <div class="col-md-6 mb-2">
+                                                            <select class="form-select" name="level_types[]" required>
+                                                                <option value="submission">Submission Based</option>
+                                                                <option value="elimination">Elimination Round</option>
+                                                                <option value="final">Final Round</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <div class="row">
+                                                        <div class="col-md-12 mb-2">
+                                                            <textarea class="form-control" name="level_descriptions[]" rows="2" placeholder="Level Description"></textarea>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <button type="button" id="add-level" class="btn btn-sm btn-outline-primary mt-2">
+                                                <i class="fas fa-plus me-1"></i> Add Another Level
+                                            </button>
+                                            
+                                            <input type="hidden" id="level-count" name="level_count" value="1">
+                                        </div>
+                                    </div>
                                 </div>
                                 
                                 <div class="col-md-12 mb-4">
@@ -142,6 +272,190 @@
                 event.preventDefault();
                 alert('Start date cannot be in the past');
             }
+        });
+        
+        // Hackathon Levels Management
+        const levelsContainer = document.getElementById('levels-container');
+        const addLevelButton = document.getElementById('add-level');
+        const levelCountInput = document.getElementById('level-count');
+        let levelCount = 1;
+        
+        // Function to create a new level item
+        function createLevelItem(levelNumber) {
+            const levelItem = document.createElement('div');
+            levelItem.className = 'level-item mb-3 p-3 border rounded';
+            levelItem.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">Level ${levelNumber}</h6>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-level">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <input type="text" class="form-control" name="level_names[]" placeholder="Level Name" required>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <select class="form-select" name="level_types[]" required>
+                            <option value="submission">Submission Based</option>
+                            <option value="elimination">Elimination Round</option>
+                            <option value="final">Final Round</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-12 mb-2">
+                        <textarea class="form-control" name="level_descriptions[]" rows="2" placeholder="Level Description"></textarea>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listener to remove button
+            const removeButton = levelItem.querySelector('.remove-level');
+            removeButton.addEventListener('click', function() {
+                levelsContainer.removeChild(levelItem);
+                levelCount--;
+                levelCountInput.value = levelCount;
+                
+                // Update level numbers
+                updateLevelNumbers();
+                
+                // Enable/disable remove buttons based on level count
+                toggleRemoveButtons();
+            });
+            
+            return levelItem;
+        }
+        
+        // Function to update level numbers
+        function updateLevelNumbers() {
+            const levelItems = levelsContainer.querySelectorAll('.level-item');
+            levelItems.forEach((item, index) => {
+                const levelTitle = item.querySelector('h6');
+                levelTitle.textContent = `Level ${index + 1}`;
+            });
+        }
+        
+        // Function to toggle remove buttons
+        function toggleRemoveButtons() {
+            const removeButtons = levelsContainer.querySelectorAll('.remove-level');
+            if (levelCount <= 1) {
+                removeButtons.forEach(button => button.disabled = true);
+            } else {
+                removeButtons.forEach(button => button.disabled = false);
+            }
+        }
+        
+        // Add event listener to add button
+        addLevelButton.addEventListener('click', function() {
+            levelCount++;
+            const newLevelItem = createLevelItem(levelCount);
+            levelsContainer.appendChild(newLevelItem);
+            levelCountInput.value = levelCount;
+            
+            // Enable remove buttons since we now have more than one level
+            toggleRemoveButtons();
+        });
+        
+        // Initialize remove buttons
+        toggleRemoveButtons();
+        
+        // Problem Statement Management
+        const problemsContainer = document.getElementById('problems-container');
+        const addProblemButton = document.getElementById('add-problem');
+        const problemCountInput = document.getElementById('problem-count');
+        let problemCount = 1;
+        
+        // Function to create a new problem item
+        function createProblemItem(problemNumber) {
+            const problemItem = document.createElement('div');
+            problemItem.className = 'problem-item mb-3 p-3 border rounded';
+            problemItem.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">Problem ${problemNumber}</h6>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-problem">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="mb-3">
+                    <input type="text" class="form-control mb-2" name="problem_titles[]" placeholder="Problem Title" required>
+                    <textarea class="form-control" name="problem_descriptions[]" rows="3" placeholder="Detailed description of the problem" required></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <input type="text" class="form-control" name="problem_requirements[]" placeholder="Requirements (comma-separated)">
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <input type="text" class="form-control" name="problem_constraints[]" placeholder="Constraints (comma-separated)">
+                    </div>
+                </div>
+            `;
+            
+            // Add event listener to remove button
+            const removeButton = problemItem.querySelector('.remove-problem');
+            removeButton.addEventListener('click', function() {
+                problemsContainer.removeChild(problemItem);
+                problemCount--;
+                problemCountInput.value = problemCount;
+                
+                // Update problem numbers
+                updateProblemNumbers();
+                
+                // Enable/disable remove buttons based on problem count
+                toggleRemoveProblemButtons();
+            });
+            
+            return problemItem;
+        }
+        
+        // Function to update problem numbers
+        function updateProblemNumbers() {
+            const problemItems = problemsContainer.querySelectorAll('.problem-item');
+            problemItems.forEach((item, index) => {
+                const problemTitle = item.querySelector('h6');
+                problemTitle.textContent = `Problem ${index + 1}`;
+            });
+        }
+        
+        // Function to toggle remove problem buttons
+        function toggleRemoveProblemButtons() {
+            const removeProblemButtons = problemsContainer.querySelectorAll('.remove-problem');
+            if (problemCount <= 1) {
+                removeProblemButtons.forEach(button => button.disabled = true);
+            } else {
+                removeProblemButtons.forEach(button => button.disabled = false);
+            }
+        }
+        
+        // Add event listener to add problem button
+        addProblemButton.addEventListener('click', function() {
+            problemCount++;
+            const newProblemItem = createProblemItem(problemCount);
+            problemsContainer.appendChild(newProblemItem);
+            problemCountInput.value = problemCount;
+            
+            // Enable remove problem buttons since we now have more than one problem
+            toggleRemoveProblemButtons();
+        });
+        
+        // Initialize remove problem buttons
+        toggleRemoveProblemButtons();
+        
+        // Hackathon Type Selection
+        const hackathonTypeRadios = document.querySelectorAll('input[name="hackathon_type"]');
+        const problemStatementSection = document.getElementById('problem_statement_section');
+        const openSelectionSection = document.getElementById('open_selection_section');
+        
+        hackathonTypeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (radio.value === 'detailed') {
+                    problemStatementSection.style.display = 'block';
+                    openSelectionSection.style.display = 'none';
+                } else if (radio.value === 'open') {
+                    problemStatementSection.style.display = 'none';
+                    openSelectionSection.style.display = 'block';
+                }
+            });
         });
     });
 </script>

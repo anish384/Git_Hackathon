@@ -476,7 +476,10 @@
                                         <td>{{ hackathon.participant_count|default(0) }}</td>
                                         <td>{{ hackathon.start_date.strftime('%b %d') }} - {{ hackathon.end_date.strftime('%b %d, %Y') }}</td>
                                         <td>
-                                            <a href="{{ url_for('view_hackathon', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                                            <div class="btn-group">
+                                                <a href="{{ url_for('view_hackathon', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                                                <a href="{{ url_for('edit_hackathon', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                            </div>
                                         </td>
                                     </tr>
                                     {% endfor %}

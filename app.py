@@ -220,12 +220,21 @@ def dashboard():
                 'organizer_id': user_id
             }).sort('created_at', -1))
             
-            # Get total participants across all hackathons
-            total_participants = 0
+            # Calculate participant count for each hackathon
             for hackathon in organizer_hackathons:
-                hackathon_teams = teams.find({'hackathon_id': hackathon['_id']})
+                # Find all teams for this hackathon
+                hackathon_teams = list(teams.find({'hackathon_id': hackathon['_id']}))
+                
+                # Count total participants across all teams in this hackathon
+                participant_count = 0
                 for team in hackathon_teams:
-                    total_participants += len(team.get('members', []))
+                    participant_count += len(team.get('members', []))
+                
+                # Add participant count to the hackathon object
+                hackathon['participant_count'] = participant_count
+            
+            # Calculate total participants across all hackathons
+            total_participants = sum(hackathon.get('participant_count', 0) for hackathon in organizer_hackathons)
             
             return render_template('dashboard.html', 
                                  user=user, 
@@ -378,6 +387,11 @@ def edit_profile():
 # Hackathon Routes
 @app.route('/list_hackathons')
 def list_hackathons():
+    # Redirect organizers to their hackathons page
+    if 'user_role' in session and session['user_role'] == 'organizer':
+        flash('As an organizer, you can manage your hackathons from your dedicated page.', 'info')
+        return redirect(url_for('my_hackathons'))
+        
     try:
         print("Fetching hackathons...")
         current_time = datetime.now()
@@ -462,8 +476,71 @@ def create_hackathon():
                 'prizes': request.form.get('prizes', ''),
                 'rules': request.form.get('rules', ''),
                 'themes': [theme.strip() for theme in request.form.get('themes', '').split(',') if theme.strip()],
-                'is_featured': 'is_featured' in request.form
+                'is_featured': 'is_featured' in request.form,
+                'hackathon_type': request.form.get('hackathon_type', 'detailed')
             }
+            
+            # Process hackathon type-specific data
+            if new_hackathon['hackathon_type'] == 'detailed':
+                # Process detailed problem statements
+                problem_count = int(request.form.get('problem_count', 1))
+                problem_titles = request.form.getlist('problem_titles[]')
+                problem_descriptions = request.form.getlist('problem_descriptions[]')
+                problem_requirements = request.form.getlist('problem_requirements[]')
+                problem_constraints = request.form.getlist('problem_constraints[]')
+                
+                problems = []
+                for i in range(min(problem_count, len(problem_titles))):
+                    # Handle empty problem_requirements and problem_constraints safely
+                    req_list = []
+                    if i < len(problem_requirements) and problem_requirements[i]:
+                        req_list = [req.strip() for req in problem_requirements[i].split(',') if req.strip()]
+                    
+                    con_list = []
+                    if i < len(problem_constraints) and problem_constraints[i]:
+                        con_list = [con.strip() for con in problem_constraints[i].split(',') if con.strip()]
+                    
+                    problem = {
+                        'problem_number': i + 1,
+                        'title': problem_titles[i] if i < len(problem_titles) else f"Problem {i+1}",
+                        'description': problem_descriptions[i] if i < len(problem_descriptions) else '',
+                        'requirements': req_list,
+                        'constraints': con_list,
+                        'created_at': datetime.now()
+                    }
+                    problems.append(problem)
+                
+                new_hackathon['problems'] = problems
+            else:  # open selection
+                # Process open selection themes and criteria
+                open_themes = request.form.get('open_themes', '')
+                new_hackathon['open_themes'] = [theme.strip() for theme in open_themes.split(',') if theme.strip()]
+                new_hackathon['selection_criteria'] = request.form.get('selection_criteria', '')
+                new_hackathon['submission_requirements'] = request.form.get('submission_requirements', '')
+            
+            # Process hackathon levels
+            level_count = int(request.form.get('level_count', 1))
+            level_names = request.form.getlist('level_names[]')
+            level_types = request.form.getlist('level_types[]')
+            level_descriptions = request.form.getlist('level_descriptions[]')
+            
+            levels = []
+            for i in range(min(level_count, len(level_names))):
+                level = {
+                    'level_number': i + 1,
+                    'name': level_names[i] if i < len(level_names) else f"Level {i+1}",
+                    'type': level_types[i] if i < len(level_types) else 'submission',
+                    'description': level_descriptions[i] if i < len(level_descriptions) else '',
+                    'status': 'pending' if i > 0 else 'active',  # First level is active by default
+                    'start_date': start_date,  # Default to hackathon start date, can be updated later
+                    'end_date': None,  # To be determined later
+                    'teams_advanced': 0,  # Number of teams that advanced from this level
+                    'submissions_count': 0,  # Number of submissions for this level
+                    'created_at': datetime.now()
+                }
+                levels.append(level)
+            
+            new_hackathon['levels'] = levels
             
             # Handle banner image upload
             if 'banner_image' in request.files and request.files['banner_image'].filename:
@@ -477,63 +554,113 @@ def create_hackathon():
                     new_hackathon['banner_image'] = unique_filename
             
             # Insert the new hackathon
-            hackathon_id = hackathons.insert_one(new_hackathon).inserted_id
+            hackathon_id = mongo.db.hackathons.insert_one(new_hackathon).inserted_id
             
             # Create notification for the organizer
-            notifications.insert_one({
+            mongo.db.notifications.insert_one({
                 'user_id': ObjectId(session['user_id']),
                 'title': 'Hackathon Created',
-                'message': f"You've successfully created '{new_hackathon['title']}'. Start inviting participants!",
+                'message': f"You've successfully created '{new_hackathon['title']}' with {level_count} levels. Start inviting participants!",
                 'type': 'success',
                 'read': False,
                 'created_at': datetime.now()
             })
             
             flash('Hackathon created successfully!', 'success')
-            return redirect(url_for('view_hackathon', hackathon_id=str(hackathon_id)))
+            return redirect(url_for('hackathon_detail', hackathon_id=str(hackathon_id)))
             
         except Exception as e:
-            flash('An error occurred during hackathon creation. Please try again.', 'danger')
+            import traceback
             print(f"Hackathon creation error: {str(e)}")
+            print(f"Traceback: {traceback.format_exc()}")
+            flash('An error occurred during hackathon creation. Please try again.', 'danger')
             return redirect(url_for('create_hackathon'))
     
     return render_template('create_hackathon.html')
 
-# Helper function for file upload validation
-def allowed_file(filename, allowed_extensions):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
-
 @app.route('/hackathons/<hackathon_id>')
 def hackathon_detail(hackathon_id):
-    hackathon = hackathons.find_one({'_id': ObjectId(hackathon_id)})
-    
-    if not hackathon:
-        flash('Hackathon not found', 'danger')
+    try:
+        # Validate hackathon_id format
+        if not ObjectId.is_valid(hackathon_id):
+            print(f"Invalid hackathon ID format: {hackathon_id}")
+            flash('Invalid hackathon ID.', 'danger')
+            return redirect(url_for('list_hackathons'))
+            
+        hackathon = hackathons.find_one({'_id': ObjectId(hackathon_id)})
+        
+        if not hackathon:
+            flash('Hackathon not found', 'danger')
+            return redirect(url_for('list_hackathons'))
+        
+        hackathon_teams = list(teams.find({'hackathon_id': ObjectId(hackathon_id)}))
+        judge_ids = hackathon.get('judges', [])
+        hackathon_judges = list(users.find({'_id': {'$in': judge_ids}}))
+        
+        # Calculate total participants
+        total_participants = 0
+        for team in hackathon_teams:
+            total_participants += len(team.get('members', []))
+        
+        # Update hackathon status based on current time
+        current_time = datetime.now()
+        
+        # Ensure dates are in datetime format
+        if isinstance(hackathon.get('start_date'), str):
+            try:
+                hackathon['start_date'] = datetime.strptime(hackathon['start_date'], '%Y-%m-%dT%H:%M:%S')
+            except Exception as e:
+                print(f"Error parsing start_date: {str(e)}")
+                hackathon['start_date'] = current_time
+                
+        if isinstance(hackathon.get('end_date'), str):
+            try:
+                hackathon['end_date'] = datetime.strptime(hackathon['end_date'], '%Y-%m-%dT%H:%M:%S')
+            except Exception as e:
+                print(f"Error parsing end_date: {str(e)}")
+                hackathon['end_date'] = current_time
+        
+        if current_time < hackathon['start_date']:
+            hackathon['status'] = 'upcoming'
+        elif current_time > hackathon['end_date']:
+            hackathon['status'] = 'completed'
+        else:
+            hackathon['status'] = 'ongoing'
+        
+        # Check if the current user is registered for this hackathon
+        is_registered = False
+        if 'user_id' in session:
+            # Check if user is part of any team in this hackathon
+            user_team = mongo.db.teams.find_one({
+                'hackathon_id': ObjectId(hackathon_id),
+                'members': ObjectId(session['user_id'])
+            })
+            is_registered = user_team is not None
+            print(f"User is registered: {is_registered}")
+        
+        # Get team members for each team (for organizers to view)
+        team_members = {}
+        if hackathon_teams and (session.get('user_role') == 'organizer' or session.get('user_role') == 'admin'):
+            for team in hackathon_teams:
+                if 'members' in team:
+                    member_ids = [ObjectId(member_id) for member_id in team['members']]
+                    members = list(mongo.db.users.find({'_id': {'$in': member_ids}}, 
+                                                    {'name': 1, 'email': 1, 'profile_image': 1}))
+                    team_members[str(team['_id'])] = members
+        
+        return render_template('view_hackathon.html', 
+                            hackathon=hackathon, 
+                            teams=hackathon_teams,
+                            judges=hackathon_judges,
+                            total_participants=total_participants,
+                            is_registered=is_registered,
+                            team_members=team_members)
+    except Exception as e:
+        print(f"Error viewing hackathon detail: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        flash('An error occurred while loading the hackathon details.', 'danger')
         return redirect(url_for('list_hackathons'))
-    
-    hackathon_teams = list(teams.find({'hackathon_id': ObjectId(hackathon_id)}))
-    judge_ids = hackathon.get('judges', [])
-    hackathon_judges = list(users.find({'_id': {'$in': judge_ids}}))
-    
-    # Calculate total participants
-    total_participants = 0
-    for team in hackathon_teams:
-        total_participants += len(team.get('members', []))
-    
-    # Update hackathon status based on current time
-    current_time = datetime.now()
-    if current_time < hackathon['start_date']:
-        hackathon['status'] = 'upcoming'
-    elif current_time > hackathon['end_date']:
-        hackathon['status'] = 'completed'
-    else:
-        hackathon['status'] = 'ongoing'
-    
-    return render_template('view_hackathon.html', 
-                          hackathon=hackathon, 
-                          teams=hackathon_teams,
-                          judges=hackathon_judges,
-                          total_participants=total_participants)
 
 @app.route('/hackathons/<hackathon_id>/edit', methods=['GET', 'POST'])
 def edit_hackathon(hackathon_id):
@@ -632,11 +759,34 @@ def view_hackathon(hackathon_id):
             
         print(f"Hackathon status: {hackathon['status']}")
         
-        return render_template('view_hackathon.html',
-                             hackathon=hackathon,
+        # Check if the current user is registered for this hackathon
+        is_registered = False
+        if 'user_id' in session:
+            # Check if user is part of any team in this hackathon
+            user_team = mongo.db.teams.find_one({
+                'hackathon_id': ObjectId(hackathon_id),
+                'members': ObjectId(session['user_id'])
+            })
+            is_registered = user_team is not None
+            print(f"User is registered: {is_registered}")
+        
+        # Get team members for each team (for organizers to view)
+        team_members = {}
+        if teams_list and (session.get('user_role') == 'organizer' or session.get('user_role') == 'admin'):
+            for team in teams_list:
+                if 'members' in team:
+                    member_ids = [ObjectId(member_id) for member_id in team['members']]
+                    members = list(mongo.db.users.find({'_id': {'$in': member_ids}}, 
+                                                     {'name': 1, 'email': 1, 'profile_image': 1}))
+                    team_members[str(team['_id'])] = members
+        
+        return render_template('view_hackathon.html', 
+                             hackathon=hackathon, 
                              teams=teams_list,
                              total_teams=len(teams_list),
-                             total_participants=total_participants)
+                             total_participants=total_participants,
+                             is_registered=is_registered,
+                             team_members=team_members)
                              
     except Exception as e:
         print(f"Error viewing hackathon: {str(e)}")
@@ -1253,6 +1403,317 @@ def submit_round(hackathon_id, round_number):
         flash('Error saving submission. Please try again.', 'error')
     
     return redirect(url_for('hackathon_rounds', hackathon_id=hackathon_id))
+
+# Helper function for date parsing
+def safe_parse_date(date_value):
+    """Safely parse a date value, handling different formats and returning a datetime object."""
+    if not date_value:
+        return datetime.now()
+        
+    if isinstance(date_value, datetime):
+        return date_value
+        
+    if isinstance(date_value, str):
+        for fmt in ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d']:
+            try:
+                return datetime.strptime(date_value, fmt)
+            except ValueError:
+                continue
+    
+    # Default fallback
+    return datetime.now()
+
+# Helper function for safe ObjectId conversion
+def safe_object_id(id_value):
+    """Safely convert a value to ObjectId, returning None if invalid."""
+    if not id_value:
+        return None
+    
+    if isinstance(id_value, ObjectId):
+        return id_value
+        
+    try:
+        return ObjectId(id_value)
+    except:
+        return None
+
+# My Hackathons Route
+@app.route('/my_hackathons')
+@login_required
+def my_hackathons():
+    if session['user_role'] != 'organizer':
+        flash('Only organizers can access this page.', 'warning')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        # Get user_id in both ObjectId and string formats to handle both cases
+        user_id_str = session['user_id']
+        user_id = safe_object_id(user_id_str)
+        
+        if not user_id:
+            flash('Invalid user ID format. Please log in again.', 'danger')
+            return redirect(url_for('logout'))
+            
+        print(f"Loading hackathons for organizer ID: {user_id}")
+        
+        # First, try with ObjectId (proper format)
+        organizer_hackathons = list(hackathons.find({
+            'organizer_id': user_id
+        }).sort('created_at', -1))
+        
+        # If none found, try with string ID format (fallback for data inconsistency)
+        if not organizer_hackathons:
+            print(f"No hackathons found with ObjectId, trying with string ID: {user_id_str}")
+            organizer_hackathons = list(hackathons.find({
+                'organizer_id': user_id_str
+            }).sort('created_at', -1))
+            
+            # Auto-fix: If we found hackathons with string ID, update them to use ObjectId
+            for hackathon in organizer_hackathons:
+                print(f"Fixing string organizer_id for hackathon: {hackathon['_id']}")
+                hackathons.update_one(
+                    {'_id': hackathon['_id']},
+                    {'$set': {'organizer_id': user_id}}
+                )
+        
+        print(f"Found {len(organizer_hackathons)} hackathons for this organizer")
+        
+        # Calculate participant count for each hackathon
+        for hackathon in organizer_hackathons:
+            try:
+                # Convert _id to string format
+                if isinstance(hackathon.get('_id'), ObjectId):
+                    hackathon['_id_str'] = str(hackathon['_id'])
+                else:
+                    hackathon['_id_str'] = str(hackathon.get('_id', ''))
+                
+                # Find all teams for this hackathon
+                hackathon_teams = list(teams.find({'hackathon_id': hackathon['_id']}))
+                
+                # Count total participants across all teams in this hackathon
+                participant_count = 0
+                for team in hackathon_teams:
+                    participant_count += len(team.get('members', []))
+                
+                # Add participant count to the hackathon object
+                hackathon['participant_count'] = participant_count
+                hackathon['team_count'] = len(hackathon_teams)
+                
+                # Ensure dates are properly parsed
+                hackathon['start_date'] = safe_parse_date(hackathon.get('start_date'))
+                hackathon['end_date'] = safe_parse_date(hackathon.get('end_date', 
+                                    hackathon['start_date'] + timedelta(days=30)))
+            except Exception as e:
+                print(f"Error processing hackathon {hackathon.get('_id')}: {str(e)}")
+                hackathon['participant_count'] = 0
+                hackathon['team_count'] = 0
+                hackathon['start_date'] = datetime.now()
+                hackathon['end_date'] = datetime.now() + timedelta(days=30)
+        
+        # Calculate total participants across all hackathons
+        total_participants = sum(hackathon.get('participant_count', 0) for hackathon in organizer_hackathons)
+        
+        # Simple status-based categorization
+        current_time = datetime.now()
+        ongoing_hackathons = []
+        upcoming_hackathons = []
+        past_hackathons = []
+        
+        for hackathon in organizer_hackathons:
+            try:
+                if current_time < hackathon['start_date']:
+                    hackathon['status'] = 'upcoming'
+                    upcoming_hackathons.append(hackathon)
+                elif current_time > hackathon['end_date']:
+                    hackathon['status'] = 'completed'
+                    past_hackathons.append(hackathon)
+                else:
+                    hackathon['status'] = 'ongoing'
+                    ongoing_hackathons.append(hackathon)
+            except Exception as e:
+                print(f"Error categorizing hackathon {hackathon.get('_id')}: {str(e)}")
+                # Default to upcoming if there's an error
+                hackathon['status'] = 'upcoming'
+                upcoming_hackathons.append(hackathon)
+        
+        # Check which routes are available in the app
+        available_routes = [
+            'view_participants',
+            'manage_levels',
+            'delete_hackathon',
+            'view_results'
+        ]
+        
+        # Filter available routes based on what actually exists in the app
+        actual_available_routes = []
+        for route in available_routes:
+            try:
+                url_for(route, hackathon_id='dummy')
+                actual_available_routes.append(route)
+            except:
+                pass
+        
+        return render_template('my_hackathons.html',
+                             hackathons=organizer_hackathons,
+                             ongoing_hackathons=ongoing_hackathons,
+                             upcoming_hackathons=upcoming_hackathons,
+                             past_hackathons=past_hackathons,
+                             total_participants=total_participants,
+                             available_routes=actual_available_routes)
+                             
+    except Exception as e:
+        import traceback
+        error_details = str(e)
+        print(f"Error loading my hackathons: {error_details}")
+        print(traceback.format_exc())
+        
+        # Check if we can fix this automatically
+        try:
+            if "ObjectId" in error_details or "not a valid ObjectId" in error_details:
+                flash("Found an issue with ID format. Attempting to fix automatically...", "warning")
+                return redirect(url_for('fix_hackathons'))
+        except Exception as fix_error:
+            print(f"Error in auto-fix attempt: {str(fix_error)}")
+        
+        flash('An error occurred while loading your hackathons. Try using the "Fix Hackathons" feature.', 'danger')
+        return redirect(url_for('fix_hackathons'))
+
+# Fix Hackathons Route - Enhanced to fix all possible issues
+@app.route('/fix_hackathons')
+@login_required
+def fix_hackathons():
+    if session['user_role'] != 'organizer':
+        flash('Only organizers can access this feature.', 'warning')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        user_id_str = session['user_id']
+        user_id = safe_object_id(user_id_str)
+        
+        if not user_id:
+            flash('Invalid user ID format. Please log in again.', 'danger')
+            return redirect(url_for('logout'))
+        
+        fixes_count = 0
+        current_time = datetime.now()
+        
+        # 1. Fix hackathons with string organizer_id
+        string_id_query = {'organizer_id': {'$type': 'string'}}
+        string_id_hackathons = list(hackathons.find(string_id_query))
+        
+        for hackathon in string_id_hackathons:
+            try:
+                # Check if the string ID matches this user
+                if hackathon['organizer_id'] == user_id_str:
+                    hackathons.update_one(
+                        {'_id': hackathon['_id']},
+                        {'$set': {'organizer_id': user_id}}
+                    )
+                    fixes_count += 1
+            except Exception as e:
+                print(f"Error fixing string ID hackathon {hackathon.get('_id')}: {str(e)}")
+        
+        # 2. Fix hackathons with missing or null organizer_id
+        missing_organizer_hackathons = list(hackathons.find({
+            '$or': [
+                {'organizer_id': {'$exists': False}},
+                {'organizer_id': None}
+            ]
+        }))
+        
+        # Always claim missing organizer hackathons for this user
+        for hackathon in missing_organizer_hackathons:
+            try:
+                hackathons.update_one(
+                    {'_id': hackathon['_id']},
+                    {'$set': {
+                        'organizer_id': user_id,
+                        'organizer_name': session['user_name']
+                    }}
+                )
+                fixes_count += 1
+            except Exception as e:
+                print(f"Error claiming hackathon {hackathon.get('_id')}: {str(e)}")
+        
+        # 3. Fix date fields for this user's hackathons
+        date_fixes = 0
+        user_hackathons = list(hackathons.find({
+            '$or': [
+                {'organizer_id': user_id},
+                {'organizer_id': user_id_str}
+            ]
+        }))
+        
+        for hackathon in user_hackathons:
+            date_updates = {}
+            
+            # Fix start_date
+            if 'start_date' not in hackathon or hackathon['start_date'] is None:
+                date_updates['start_date'] = current_time
+                date_fixes += 1
+            elif isinstance(hackathon['start_date'], str):
+                parsed_date = safe_parse_date(hackathon['start_date'])
+                date_updates['start_date'] = parsed_date
+                date_fixes += 1
+            
+            # Fix end_date
+            if 'end_date' not in hackathon or hackathon['end_date'] is None:
+                start_date = hackathon.get('start_date', current_time)
+                if isinstance(start_date, str):
+                    start_date = safe_parse_date(start_date)
+                date_updates['end_date'] = start_date + timedelta(days=30)
+                date_fixes += 1
+            elif isinstance(hackathon['end_date'], str):
+                parsed_date = safe_parse_date(hackathon['end_date'])
+                date_updates['end_date'] = parsed_date
+                date_fixes += 1
+            
+            # Apply date updates if needed
+            if date_updates:
+                hackathons.update_one(
+                    {'_id': hackathon['_id']},
+                    {'$set': date_updates}
+                )
+                fixes_count += 1
+        
+        # 4. Fix team references
+        team_fixes = 0
+        teams_with_string_hackathon_id = list(teams.find({'hackathon_id': {'$type': 'string'}}))
+        
+        for team in teams_with_string_hackathon_id:
+            try:
+                hackathon_id = safe_object_id(team['hackathon_id'])
+                if hackathon_id:
+                    teams.update_one(
+                        {'_id': team['_id']},
+                        {'$set': {'hackathon_id': hackathon_id}}
+                    )
+                    team_fixes += 1
+            except Exception as e:
+                print(f"Error fixing team {team.get('_id')}: {str(e)}")
+        
+        total_fixes = fixes_count + date_fixes + team_fixes
+        
+        if total_fixes > 0:
+            flash(f'Successfully fixed {total_fixes} issues in your hackathons database.', 'success')
+        else:
+            flash('No issues found with your hackathons.', 'info')
+        
+        # Always redirect back to my_hackathons
+        return redirect(url_for('my_hackathons'))
+        
+    except Exception as e:
+        import traceback
+        print(f"Error fixing hackathons: {str(e)}")
+        print(traceback.format_exc())
+        flash('An error occurred while fixing hackathons. Please contact support.', 'danger')
+        # Redirect to dashboard instead as a fallback
+        flash('An error occurred during database cleanup.', 'danger')
+        return redirect(url_for('dashboard'))
+
+# Helper function for file upload validation
+def allowed_file(filename, allowed_extensions):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
 # Main execution
 if __name__ == '__main__':

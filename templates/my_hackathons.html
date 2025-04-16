@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}My Hackathons | HackHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h1>My Hackathons</h1>
+                <p class="lead">Manage your hackathon events</p>
+                {% if total_participants is defined and total_participants > 0 %}
+                <div class="mt-2">
+                    <span class="badge bg-info rounded-pill fs-6">
+                        <i class="fas fa-users me-1"></i> Total Participants: {{ total_participants }}
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="py-5">
+    <div class="container">
+        <!-- Action Buttons -->
+        <div class="row mb-4">
+            <div class="col-12 d-flex justify-content-between">
+                <div>
+                    <a href="{{ url_for('fix_hackathons') }}" class="btn btn-secondary me-2">
+                        <i class="fas fa-tools me-2"></i>Fix Hackathons
+                    </a>
+                    <a href="{{ url_for('cleanup_hackathons') }}?claim=true" class="btn btn-outline-secondary">
+                        <i class="fas fa-broom me-2"></i>Advanced Cleanup
+                    </a>
+                </div>
+                <a href="{{ url_for('create_hackathon') }}" class="btn btn-primary">
+                    <i class="fas fa-plus-circle me-2"></i>Create New Hackathon
+                </a>
+            </div>
+        </div>
+        
+        <!-- Hackathon Listings -->
+        {% if hackathons and hackathons|length > 0 %}
+            <!-- Ongoing Hackathons -->
+            <div class="row mb-5">
+                <div class="col-12">
+                    <h2 class="mb-4">
+                        <i class="fas fa-play-circle text-success me-2"></i>
+                        Ongoing Hackathons
+                    </h2>
+                    {% if ongoing_hackathons and ongoing_hackathons|length > 0 %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Hackathon</th>
+                                        <th>Start Date</th>
+                                        <th>End Date</th>
+                                        <th>Participants</th>
+                                        <th>Teams</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for hackathon in ongoing_hackathons %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ hackathon.title }}</strong>
+                                                {% if hackathon.is_featured %}
+                                                    <span class="badge bg-warning ms-2">Featured</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if hackathon.start_date %}
+                                                    {{ hackathon.start_date.strftime('%b %d, %Y') }}
+                                                {% else %}
+                                                    N/A
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if hackathon.end_date %}
+                                                    {{ hackathon.end_date.strftime('%b %d, %Y') }}
+                                                {% else %}
+                                                    N/A
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ hackathon.participant_count|default(0) }}</td>
+                                            <td>{{ hackathon.team_count|default(0) }}</td>
+                                            <td>
+                                                <div class="btn-group">
+                                                    <a href="{{ url_for('hackathon_detail', hackathon_id=hackathon._id|string) }}" class="btn btn-sm btn-outline-primary">View</a>
+                                                    <a href="{{ url_for('edit_hackathon', hackathon_id=hackathon._id|string) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                                    <button type="button" class="btn btn-sm btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                                        More
+                                                    </button>
+                                                    <ul class="dropdown-menu">
+                                                        {% if 'view_participants' in available_routes %}
+                                                        <li><a class="dropdown-item" href="{{ url_for('view_participants', hackathon_id=hackathon._id|string) }}">View Participants</a></li>
+                                                        {% endif %}
+                                                        {% if 'manage_levels' in available_routes %}
+                                                        <li><a class="dropdown-item" href="{{ url_for('manage_levels', hackathon_id=hackathon._id|string) }}">Manage Levels</a></li>
+                                                        {% endif %}
+                                                        <li><hr class="dropdown-divider"></li>
+                                                        {% if 'delete_hackathon' in available_routes %}
+                                                        <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#deleteModal{{ hackathon._id|string }}">Delete</a></li>
+                                                        {% endif %}
+                                                    </ul>
+                                                </div>
+                                                
+                                                <!-- Delete Modal -->
+                                                <div class="modal fade" id="deleteModal{{ hackathon._id|string }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ hackathon._id|string }}" aria-hidden="true">
+                                                    <div class="modal-dialog">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title" id="deleteModalLabel{{ hackathon._id|string }}">Confirm Deletion</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                Are you sure you want to delete <strong>{{ hackathon.title }}</strong>? This action cannot be undone.
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <a href="{{ url_for('delete_hackathon', hackathon_id=hackathon._id|string) }}" class="btn btn-danger">Delete Hackathon</a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            You don't have any ongoing hackathons at the moment.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Upcoming Hackathons -->
+            <div class="row mb-5">
+                <div class="col-12">
+                    <h2 class="mb-4">
+                        <i class="fas fa-calendar-alt text-primary me-2"></i>
+                        Upcoming Hackathons
+                    </h2>
+                    {% if upcoming_hackathons %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Hackathon</th>
+                                        <th>Start Date</th>
+                                        <th>End Date</th>
+                                        <th>Participants</th>
+                                        <th>Teams</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for hackathon in upcoming_hackathons %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ hackathon.title }}</strong>
+                                                {% if hackathon.is_featured %}
+                                                    <span class="badge bg-warning ms-2">Featured</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ hackathon.start_date.strftime('%b %d, %Y') }}</td>
+                                            <td>{{ hackathon.end_date.strftime('%b %d, %Y') }}</td>
+                                            <td>{{ hackathon.participant_count|default(0) }}</td>
+                                            <td>{{ hackathon.team_count|default(0) }}</td>
+                                            <td>
+                                                <div class="btn-group">
+                                                    <a href="{{ url_for('view_hackathon', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                                                    <a href="{{ url_for('edit_hackathon', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                                    <button type="button" class="btn btn-sm btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                                        More
+                                                    </button>
+                                                    <ul class="dropdown-menu">
+                                                        <li><a class="dropdown-item" href="{{ url_for('view_participants', hackathon_id=hackathon._id) }}">View Participants</a></li>
+                                                        <li><a class="dropdown-item" href="{{ url_for('manage_levels', hackathon_id=hackathon._id) }}">Manage Levels</a></li>
+                                                        <li><hr class="dropdown-divider"></li>
+                                                        <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#deleteModal{{ hackathon._id }}">Delete</a></li>
+                                                    </ul>
+                                                </div>
+                                                
+                                                <!-- Delete Modal -->
+                                                <div class="modal fade" id="deleteModal{{ hackathon._id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ hackathon._id }}" aria-hidden="true">
+                                                    <div class="modal-dialog">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title" id="deleteModalLabel{{ hackathon._id }}">Confirm Deletion</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                Are you sure you want to delete <strong>{{ hackathon.title }}</strong>? This action cannot be undone.
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <a href="{{ url_for('delete_hackathon', hackathon_id=hackathon._id) }}" class="btn btn-danger">Delete Hackathon</a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            You don't have any upcoming hackathons scheduled.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Past Hackathons -->
+            <div class="row">
+                <div class="col-12">
+                    <h2 class="mb-4">
+                        <i class="fas fa-history text-secondary me-2"></i>
+                        Past Hackathons
+                    </h2>
+                    {% if past_hackathons %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Hackathon</th>
+                                        <th>Start Date</th>
+                                        <th>End Date</th>
+                                        <th>Participants</th>
+                                        <th>Teams</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for hackathon in past_hackathons %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ hackathon.title }}</strong>
+                                                {% if hackathon.is_featured %}
+                                                    <span class="badge bg-warning ms-2">Featured</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ hackathon.start_date.strftime('%b %d, %Y') }}</td>
+                                            <td>{{ hackathon.end_date.strftime('%b %d, %Y') }}</td>
+                                            <td>{{ hackathon.participant_count|default(0) }}</td>
+                                            <td>{{ hackathon.team_count|default(0) }}</td>
+                                            <td>
+                                                <div class="btn-group">
+                                                    <a href="{{ url_for('view_hackathon', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                                                    <a href="{{ url_for('view_results', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-success">Results</a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            You don't have any past hackathons.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <!-- No Hackathons Created Yet -->
+            <div class="row">
+                <div class="col-md-8 mx-auto text-center py-5">
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-plus fa-5x text-muted mb-4"></i>
+                        <h3>You haven't created any hackathons yet</h3>
+                        <p class="lead text-muted mb-4">Get started by creating your first hackathon event or check if you have any unclaimed hackathons.</p>
+                        <div class="d-flex justify-content-center gap-3">
+                            <a href="{{ url_for('fix_hackathons') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-tools me-2"></i>Fix / Claim Hackathons
+                            </a>
+                            <a href="{{ url_for('create_hackathon') }}" class="btn btn-primary">
+                                <i class="fas fa-plus-circle me-2"></i>Create Hackathon
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

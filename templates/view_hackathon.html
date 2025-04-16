@@ -126,6 +126,44 @@
         transform: translateY(-5px);
         box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
     }
+    
+    /* Hackathon Levels Styles */
+    .levels-timeline {
+        position: relative;
+        padding-left: 1rem;
+    }
+    
+    .level-item {
+        position: relative;
+    }
+    
+    .level-item:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        top: 2.5rem;
+        left: 1.25rem;
+        height: calc(100% - 2rem);
+        width: 2px;
+        background-color: #e9ecef;
+    }
+    
+    .level-badge {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: white;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .level-badge.bg-light {
+        color: #6c757d;
+        border: 2px solid #e9ecef;
+    }
 </style>
 {% endblock %}
 
@@ -147,13 +185,33 @@
                 <div class="card-body">
                     <h5 class="card-title mb-4">Quick Actions</h5>
                     {% if hackathon.status == 'upcoming' %}
-                        <a href="{{ url_for('register_hackathon', hackathon_id=hackathon._id|string) }}" 
-                           class="btn btn-primary w-100 mb-3">Register Now</a>
+                        {% if session.get('user_role') == 'participant' %}
+                            <a href="{{ url_for('register_hackathon', hackathon_id=hackathon._id|string) }}" 
+                               class="btn btn-primary w-100 mb-3">Register Now</a>
+                        {% elif session.get('user_role') == 'organizer' %}
+                            <button class="btn btn-secondary w-100 mb-3" disabled>
+                                <i class="fas fa-info-circle me-2"></i>Organizers Cannot Register
+                            </button>
+                        {% else %}
+                            <a href="{{ url_for('login') }}" class="btn btn-outline-primary w-100 mb-3">
+                                <i class="fas fa-sign-in-alt me-2"></i>Login to Register
+                            </a>
+                        {% endif %}
                     {% elif hackathon.status == 'ongoing' %}
-                        <a href="{{ url_for('hackathon_rounds', hackathon_id=hackathon._id|string) }}" 
-                           class="btn btn-success w-100 mb-3">
-                            <i class="fas fa-play-circle me-2"></i>Join Ongoing Event
-                        </a>
+                        {% if session.get('user_role') == 'participant' %}
+                            <a href="{{ url_for('hackathon_rounds', hackathon_id=hackathon._id|string) }}" 
+                               class="btn btn-success w-100 mb-3">
+                                <i class="fas fa-play-circle me-2"></i>Join Ongoing Event
+                            </a>
+                        {% elif session.get('user_role') == 'organizer' %}
+                            <button class="btn btn-secondary w-100 mb-3" disabled>
+                                <i class="fas fa-info-circle me-2"></i>Organizers Cannot Participate
+                            </button>
+                        {% else %}
+                            <a href="{{ url_for('login') }}" class="btn btn-outline-primary w-100 mb-3">
+                                <i class="fas fa-sign-in-alt me-2"></i>Login to Participate
+                            </a>
+                        {% endif %}
                     {% else %}
                         <button class="btn btn-secondary w-100 mb-3" disabled>Event Completed</button>
                     {% endif %}
@@ -220,6 +278,148 @@
     <!-- Timeline and Resources -->
     <div class="row">
         <div class="col-lg-8">
+            <!-- Problem Statement Section -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    {% if hackathon.hackathon_type == 'detailed' %}
+                        <h3 class="card-title mb-4">Problem Statements</h3>
+                        {% if hackathon.problems %}
+                            <div class="accordion" id="problemAccordion">
+                                {% for problem in hackathon.problems %}
+                                    <div class="accordion-item border-0 mb-3">
+                                        <h2 class="accordion-header" id="heading{{ loop.index }}">
+                                            <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" aria-expanded="{% if loop.first %}true{% else %}false{% endif %}" aria-controls="collapse{{ loop.index }}">
+                                                <strong>{{ problem.title }}</strong>
+                                            </button>
+                                        </h2>
+                                        <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="heading{{ loop.index }}" data-bs-parent="#problemAccordion">
+                                            <div class="accordion-body">
+                                                <p>{{ problem.description }}</p>
+                                                
+                                                {% if problem.requirements %}
+                                                    <h6 class="mt-3">Requirements:</h6>
+                                                    <ul class="mb-3">
+                                                        {% for req in problem.requirements %}
+                                                            <li>{{ req }}</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                {% endif %}
+                                                
+                                                {% if problem.constraints %}
+                                                    <h6>Constraints:</h6>
+                                                    <ul>
+                                                        {% for con in problem.constraints %}
+                                                            <li>{{ con }}</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                {% endif %}
+                                                
+                                                <div class="mt-3">
+                                                    <a href="#" class="btn btn-primary">
+                                                        <i class="fas fa-code me-1"></i> Choose This Problem
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i> No problem statements have been defined for this hackathon yet.
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <h3 class="card-title mb-4">Open Selection</h3>
+                        <div class="mb-4">
+                            <h5>Theme Areas</h5>
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                {% for theme in hackathon.open_themes %}
+                                    <span class="badge bg-primary bg-opacity-10 text-primary p-2">{{ theme }}</span>
+                                {% endfor %}
+                            </div>
+                            
+                            {% if hackathon.selection_criteria %}
+                                <h5>Selection Criteria</h5>
+                                <p>{{ hackathon.selection_criteria }}</p>
+                            {% endif %}
+                            
+                            {% if hackathon.submission_requirements %}
+                                <h5>Submission Requirements</h5>
+                                <p>{{ hackathon.submission_requirements }}</p>
+                            {% endif %}
+                            
+                            <div class="mt-4">
+                                {% if is_registered %}
+                                    <a href="#" class="btn btn-primary">
+                                        <i class="fas fa-lightbulb me-1"></i> Submit Your Problem
+                                    </a>
+                                {% else %}
+                                    <button class="btn btn-secondary" disabled>
+                                        <i class="fas fa-info-circle me-1"></i> Register to Submit
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Hackathon Levels Section -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <h3 class="card-title mb-4">Hackathon Levels</h3>
+                    {% if hackathon.levels %}
+                        <div class="levels-timeline">
+                            {% for level in hackathon.levels %}
+                                <div class="level-item mb-4">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div class="level-badge {% if level.status == 'active' %}bg-success{% elif level.status == 'completed' %}bg-secondary{% else %}bg-light{% endif %} me-3">
+                                            {{ level.level_number }}
+                                        </div>
+                                        <div>
+                                            <h5 class="mb-0">{{ level.name }}</h5>
+                                            <span class="badge {% if level.status == 'active' %}bg-success{% elif level.status == 'completed' %}bg-secondary{% else %}bg-light text-dark{% endif %} mt-1">
+                                                {{ level.status|title }}
+                                            </span>
+                                            <span class="badge bg-info ms-1">{{ level.type|title }}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {% if level.description %}
+                                        <p class="ms-5 mb-2">{{ level.description }}</p>
+                                    {% endif %}
+                                    
+                                    <div class="ms-5 d-flex flex-wrap">
+                                        {% if level.status == 'active' and is_registered %}
+                                            <a href="#" class="btn btn-sm btn-primary me-2 mb-2">
+                                                <i class="fas fa-upload me-1"></i> Submit Project
+                                            </a>
+                                        {% endif %}
+                                        
+                                        {% if level.status != 'pending' and (session.get('user_role') == 'organizer' or is_registered) %}
+                                            <a href="#" class="btn btn-sm btn-outline-primary me-2 mb-2">
+                                                <i class="fas fa-eye me-1"></i> View Submissions
+                                            </a>
+                                        {% endif %}
+                                        
+                                        {% if level.status == 'completed' and level.submissions_count > 0 and is_registered %}
+                                            <a href="#" class="btn btn-sm btn-outline-success me-2 mb-2">
+                                                <i class="fas fa-trophy me-1"></i> View Results
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i> No levels have been defined for this hackathon yet.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body">
                     <h3 class="card-title mb-4">Event Timeline</h3>
@@ -268,6 +468,55 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Registered Participants Section (Only visible to organizers) -->
+            {% if session.get('user_role') == 'organizer' or session.get('user_role') == 'admin' %}
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+                        <h3 class="card-title mb-4">Registered Participants</h3>
+                        {% if teams|length > 0 %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Team Name</th>
+                                            <th>Members</th>
+                                            <th>Registered On</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for team in teams %}
+                                            <tr>
+                                                <td>
+                                                    <strong>{{ team.name }}</strong>
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex flex-column">
+                                                        {% for member in team_members.get(team._id|string, []) %}
+                                                            <span>{{ member.name }}</span>
+                                                        {% endfor %}
+                                                    </div>
+                                                </td>
+                                                <td>{{ team.created_at.strftime('%b %d, %Y') }}</td>
+                                                <td>
+                                                    <a href="#" class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-envelope me-1"></i> Contact
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i> No teams have registered for this hackathon yet.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>
