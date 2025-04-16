@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Create Hackathon | HackHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h1>Create a New Hackathon</h1>
+                <p class="lead">Set up your hackathon event and invite participants</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card shadow">
+                    <div class="card-body p-5">
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+                        
+                        <form method="POST" enctype="multipart/form-data">
+                            <div class="row">
+                                <div class="col-md-12 mb-4">
+                                    <label for="title" class="form-label">Hackathon Title *</label>
+                                    <input type="text" class="form-control" id="title" name="title" required>
+                                </div>
+                                
+                                <div class="col-md-12 mb-4">
+                                    <label for="description" class="form-label">Description *</label>
+                                    <textarea class="form-control" id="description" name="description" rows="5" required></textarea>
+                                    <div class="form-text">Provide a detailed description of your hackathon, including goals and expectations.</div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-4">
+                                    <label for="start_date" class="form-label">Start Date *</label>
+                                    <input type="date" class="form-control" id="start_date" name="start_date" required>
+                                </div>
+                                
+                                <div class="col-md-6 mb-4">
+                                    <label for="end_date" class="form-label">End Date *</label>
+                                    <input type="date" class="form-control" id="end_date" name="end_date" required>
+                                </div>
+                                
+                                <div class="col-md-6 mb-4">
+                                    <label for="location" class="form-label">Location *</label>
+                                    <input type="text" class="form-control" id="location" name="location" required>
+                                    <div class="form-text">Physical location or "Virtual" if online-only</div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-4">
+                                    <label for="max_team_size" class="form-label">Maximum Team Size *</label>
+                                    <input type="number" class="form-control" id="max_team_size" name="max_team_size" min="1" max="10" value="4" required>
+                                </div>
+                                
+                                <div class="col-md-12 mb-4">
+                                    <label for="themes" class="form-label">Themes</label>
+                                    <input type="text" class="form-control" id="themes" name="themes">
+                                    <div class="form-text">Comma-separated list of themes for your hackathon (e.g., AI, Healthcare, Education)</div>
+                                </div>
+                                
+                                <div class="col-md-12 mb-4">
+                                    <label class="form-label">Rules & Guidelines</label>
+                                    <textarea class="form-control" id="rules" name="rules" rows="4"></textarea>
+                                    <div class="form-text">Set clear rules and guidelines for participants</div>
+                                </div>
+                                
+                                <div class="col-md-12 mb-4">
+                                    <label class="form-label">Prizes</label>
+                                    <textarea class="form-control" id="prizes" name="prizes" rows="3"></textarea>
+                                    <div class="form-text">Describe the prizes for winners (optional)</div>
+                                </div>
+                                
+                                <div class="col-md-12 mb-4">
+                                    <label for="banner_image" class="form-label">Banner Image</label>
+                                    <input type="file" class="form-control" id="banner_image" name="banner_image" accept="image/*">
+                                    <div class="form-text">Upload a banner image for your hackathon (recommended size: 1200×400)</div>
+                                </div>
+                                
+                                <div class="col-md-12 mb-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="is_featured" name="is_featured">
+                                        <label class="form-check-label" for="is_featured">
+                                            Feature this hackathon on the homepage
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-12">
+                                    <div class="d-grid gap-2">
+                                        <button type="submit" class="btn btn-primary btn-lg">
+                                            <i class="fas fa-plus-circle me-2"></i>Create Hackathon
+                                        </button>
+                                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                                            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Client-side validation
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+        
+        form.addEventListener('submit', function(event) {
+            const startDate = new Date(startDateInput.value);
+            const endDate = new Date(endDateInput.value);
+            
+            if (endDate < startDate) {
+                event.preventDefault();
+                alert('End date cannot be earlier than start date');
+            }
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            if (startDate < today) {
+                event.preventDefault();
+                alert('Start date cannot be in the past');
+            }
+        });
+    });
+</script>
+{% endblock %}

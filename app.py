@@ -48,7 +48,29 @@ def index():
     upcoming = list(hackathons.find({
         'start_date': {'$gte': datetime.now()}
     }).sort('start_date', 1).limit(3))
-    return render_template('index.html', upcoming_hackathons=upcoming)
+    
+    # Get real-time statistics
+    total_hackathons = hackathons.count_documents({})
+    
+    # Count active participants (users with role 'participant')
+    total_participants = users.count_documents({'role': 'participant'})
+    
+    # Count total projects
+    total_projects = projects.count_documents({})
+    
+    # Count ongoing hackathons
+    current_time = datetime.now()
+    ongoing_hackathons = hackathons.count_documents({
+        'start_date': {'$lte': current_time},
+        'end_date': {'$gte': current_time}
+    })
+    
+    return render_template('index.html', 
+                          upcoming_hackathons=upcoming,
+                          total_hackathons=total_hackathons,
+                          total_participants=total_participants,
+                          total_projects=total_projects,
+                          ongoing_hackathons=ongoing_hackathons)
 
 # User Authentication Routes
 @app.route('/login', methods=['GET', 'POST'])
@@ -300,40 +322,73 @@ def list_hackathons():
 
 @app.route('/hackathons/create', methods=['GET', 'POST'])
 def create_hackathon():
-    if 'user_id' not in session or session['user_role'] != 'admin':
-        flash('You must be an admin to create hackathons', 'danger')
+    if 'user_id' not in session or session['user_role'] not in ['admin', 'organizer']:
+        flash('You must be an organizer to create hackathons', 'danger')
         return redirect(url_for('index'))
     
     if request.method == 'POST':
-        start_date = datetime.strptime(request.form['start_date'], '%Y-%m-%d')
-        end_date = datetime.strptime(request.form['end_date'], '%Y-%m-%d')
-        
-        new_hackathon = {
-            'title': request.form['title'],
-            'description': request.form['description'],
-            'start_date': start_date,
-            'end_date': end_date,
-            'location': request.form['location'],
-            'max_team_size': int(request.form['max_team_size']),
-            'organizer_id': ObjectId(session['user_id']),
-            'status': 'upcoming',
-            'created_at': datetime.now(),
-            'judges': [],
-            'sponsors': [],
-            'prizes': [],
-            'themes': request.form['themes'].split(',') if request.form['themes'] else []
-        }
-        
         try:
+            # Process form data
+            start_date = datetime.strptime(request.form['start_date'], '%Y-%m-%d')
+            end_date = datetime.strptime(request.form['end_date'], '%Y-%m-%d')
+            
+            # Create new hackathon document
+            new_hackathon = {
+                'title': request.form['title'],
+                'description': request.form['description'],
+                'start_date': start_date,
+                'end_date': end_date,
+                'location': request.form['location'],
+                'max_team_size': int(request.form['max_team_size']),
+                'organizer_id': ObjectId(session['user_id']),
+                'organizer_name': session['user_name'],
+                'status': 'upcoming',
+                'created_at': datetime.now(),
+                'judges': [],
+                'sponsors': [],
+                'prizes': request.form.get('prizes', ''),
+                'rules': request.form.get('rules', ''),
+                'themes': [theme.strip() for theme in request.form.get('themes', '').split(',') if theme.strip()],
+                'is_featured': 'is_featured' in request.form
+            }
+            
+            # Handle banner image upload
+            if 'banner_image' in request.files and request.files['banner_image'].filename:
+                banner_image = request.files['banner_image']
+                if banner_image and allowed_file(banner_image.filename, ['jpg', 'jpeg', 'png']):
+                    filename = secure_filename(banner_image.filename)
+                    # Create a unique filename
+                    unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                    banner_image.save(file_path)
+                    new_hackathon['banner_image'] = unique_filename
+            
+            # Insert the new hackathon
             hackathon_id = hackathons.insert_one(new_hackathon).inserted_id
+            
+            # Create notification for the organizer
+            notifications.insert_one({
+                'user_id': ObjectId(session['user_id']),
+                'title': 'Hackathon Created',
+                'message': f"You've successfully created '{new_hackathon['title']}'. Start inviting participants!",
+                'type': 'success',
+                'read': False,
+                'created_at': datetime.now()
+            })
+            
             flash('Hackathon created successfully!', 'success')
-            return redirect(url_for('hackathon_detail', hackathon_id=hackathon_id))
+            return redirect(url_for('view_hackathon', hackathon_id=str(hackathon_id)))
+            
         except Exception as e:
             flash('An error occurred during hackathon creation. Please try again.', 'danger')
             print(f"Hackathon creation error: {str(e)}")
             return redirect(url_for('create_hackathon'))
     
     return render_template('create_hackathon.html')
+
+# Helper function for file upload validation
+def allowed_file(filename, allowed_extensions):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
 @app.route('/hackathons/<hackathon_id>')
 def hackathon_detail(hackathon_id):
@@ -347,15 +402,30 @@ def hackathon_detail(hackathon_id):
     judge_ids = hackathon.get('judges', [])
     hackathon_judges = list(users.find({'_id': {'$in': judge_ids}}))
     
-    return render_template('hackathon_detail.html', 
+    # Calculate total participants
+    total_participants = 0
+    for team in hackathon_teams:
+        total_participants += len(team.get('members', []))
+    
+    # Update hackathon status based on current time
+    current_time = datetime.now()
+    if current_time < hackathon['start_date']:
+        hackathon['status'] = 'upcoming'
+    elif current_time > hackathon['end_date']:
+        hackathon['status'] = 'completed'
+    else:
+        hackathon['status'] = 'ongoing'
+    
+    return render_template('view_hackathon.html', 
                           hackathon=hackathon, 
                           teams=hackathon_teams,
-                          judges=hackathon_judges)
+                          judges=hackathon_judges,
+                          total_participants=total_participants)
 
 @app.route('/hackathons/<hackathon_id>/edit', methods=['GET', 'POST'])
 def edit_hackathon(hackathon_id):
-    if 'user_id' not in session or session['user_role'] != 'admin':
-        flash('You must be an admin to edit hackathons', 'danger')
+    if 'user_id' not in session or session['user_role'] not in ['admin', 'organizer']:
+        flash('You must be an admin or organizer to edit hackathons', 'danger')
         return redirect(url_for('index'))
     
     hackathon = hackathons.find_one({'_id': ObjectId(hackathon_id)})
