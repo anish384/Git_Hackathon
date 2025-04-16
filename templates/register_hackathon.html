@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Register for {{ hackathon.title }} | HackHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h1>Register for {{ hackathon.title }}</h1>
+                <p class="lead">Create your team and start your journey!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <form method="POST">
+                            <div class="mb-4">
+                                <label for="team_name" class="form-label">Team Name *</label>
+                                <input type="text" class="form-control" id="team_name" name="team_name" required>
+                                <div class="form-text">Choose a unique and creative name for your team.</div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="team_description" class="form-label">Team Description</label>
+                                <textarea class="form-control" id="team_description" name="team_description" rows="4"></textarea>
+                                <div class="form-text">Tell us about your team and what you hope to achieve.</div>
+                            </div>
+
+                            <div class="mb-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="looking_for_members" name="looking_for_members">
+                                    <label class="form-check-label" for="looking_for_members">
+                                        Looking for Team Members
+                                    </label>
+                                </div>
+                                <div class="form-text">Check this if you want other participants to join your team.</div>
+                            </div>
+
+                            <div class="alert alert-info">
+                                <h5 class="alert-heading">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Important Information
+                                </h5>
+                                <ul class="mb-0">
+                                    <li>Maximum team size: {{ hackathon.max_team_size }} members</li>
+                                    <li>Event starts: {{ hackathon.start_date.strftime('%B %d, %Y') }}</li>
+                                    <li>Event ends: {{ hackathon.end_date.strftime('%B %d, %Y') }}</li>
+                                </ul>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-rocket me-2"></i>
+                                    Register Team
+                                </button>
+                                <a href="{{ url_for('view_hackathon', hackathon_id=hackathon._id) }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>
+                                    Back to Hackathon
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

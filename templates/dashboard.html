@@ -8,7 +8,13 @@
         <div class="row">
             <div class="col-12">
                 <h1>Welcome, {{ user.name }}!</h1>
-                <p class="lead">Manage your hackathon journey</p>
+                <p class="lead">
+                    {% if user.role == 'organizer' %}
+                    Manage your hackathon events and teams
+                    {% else %}
+                    Manage your hackathon journey
+                    {% endif %}
+                </p>
             </div>
         </div>
     </div>
@@ -25,12 +31,25 @@
                         <p><strong>Name:</strong> {{ user.name }}</p>
                         <p><strong>Email:</strong> {{ user.email }}</p>
                         <p><strong>Role:</strong> {{ user.role|title }}</p>
+                        
+                        {% if user.role == 'participant' %}
                         <p><strong>Skills:</strong></p>
                         <div class="mb-3">
                             {% for skill in user.skills %}
                             <span class="badge bg-primary me-1 mb-1">{{ skill }}</span>
                             {% endfor %}
                         </div>
+                        {% elif user.role == 'organizer' %}
+                        <p><strong>Organization:</strong> {{ user.organization }}</p>
+                        <p><strong>Verification Status:</strong> 
+                            {% if user.verified %}
+                            <span class="badge bg-success">Verified</span>
+                            {% else %}
+                            <span class="badge bg-warning">Pending Verification</span>
+                            {% endif %}
+                        </p>
+                        {% endif %}
+                        
                         <a href="#" class="btn btn-primary">Edit Profile</a>
                     </div>
                 </div>
@@ -58,6 +77,40 @@
             <!-- Quick Actions -->
             <div class="col-12">
                 <div class="row">
+                    {% if user.role == 'organizer' %}
+                    <!-- Organizer Actions -->
+                    <div class="col-lg-4 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-plus-circle fa-3x text-success mb-3"></i>
+                                <h5 class="card-title">Create Hackathon</h5>
+                                <p class="card-text">Create and organize a new hackathon event.</p>
+                                <a href="{{ url_for('create_hackathon') }}" class="btn btn-success">Create New</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-tasks fa-3x text-success mb-3"></i>
+                                <h5 class="card-title">Manage Events</h5>
+                                <p class="card-text">View and manage your hackathon events.</p>
+                                <a href="#" class="btn btn-success">My Hackathons</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-chart-line fa-3x text-success mb-3"></i>
+                                <h5 class="card-title">Analytics</h5>
+                                <p class="card-text">View statistics and performance of your events.</p>
+                                <a href="#" class="btn btn-success">View Analytics</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- Participant Actions -->
                     <div class="col-lg-4 mb-4">
                         <div class="card">
                             <div class="card-body text-center">
@@ -88,6 +141,7 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

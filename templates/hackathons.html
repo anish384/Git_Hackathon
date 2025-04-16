@@ -16,12 +16,123 @@
 
 <section class="py-5">
     <div class="container">
+        <!-- Ongoing Hackathons -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <h2 class="mb-4">
+                    <i class="fas fa-play-circle text-success me-2"></i>
+                    Ongoing Hackathons
+                </h2>
+                {% if ongoing_hackathons %}
+                    <div class="row">
+                        {% for hackathon in ongoing_hackathons %}
+                            <div class="col-lg-4 col-md-6 mb-4">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <span class="badge bg-success mb-2">Ongoing</span>
+                                        <h5 class="card-title">{{ hackathon.get('title', 'Untitled Hackathon') }}</h5>
+                                        <p class="card-text">{{ hackathon.get('description', 'No description available.')[:150] }}...</p>
+                                        <div class="mb-3">
+                                            <small class="text-muted">
+                                                <i class="far fa-clock me-1"></i>
+                                                Ends: {{ hackathon.end_date.strftime('%B %d, %Y') if hackathon.end_date else 'Date not set' }}
+                                            </small>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <a href="{{ url_for('view_hackathon', hackathon_id=hackathon._id|string) }}" class="btn btn-outline-primary">View Details</a>
+                                            <a href="{{ url_for('register_hackathon', hackathon_id=hackathon._id|string) }}" class="btn btn-success">Join Now</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No ongoing hackathons at the moment.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Upcoming Hackathons -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <h2 class="mb-4">
+                    <i class="fas fa-calendar-alt text-primary me-2"></i>
+                    Upcoming Hackathons
+                </h2>
+                {% if upcoming_hackathons %}
+                    <div class="row">
+                        {% for hackathon in upcoming_hackathons %}
+                            <div class="col-lg-4 col-md-6 mb-4">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <span class="badge bg-primary mb-2">Upcoming</span>
+                                        <h5 class="card-title">{{ hackathon.get('title', 'Untitled Hackathon') }}</h5>
+                                        <p class="card-text">{{ hackathon.get('description', 'No description available.')[:150] }}...</p>
+                                        <div class="mb-3">
+                                            <small class="text-muted">
+                                                <i class="far fa-calendar-alt me-1"></i>
+                                                Starts: {{ hackathon.start_date.strftime('%B %d, %Y') if hackathon.start_date else 'Date not set' }}
+                                            </small>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <a href="{{ url_for('view_hackathon', hackathon_id=hackathon._id|string) }}" class="btn btn-outline-primary">View Details</a>
+                                            <a href="{{ url_for('register_hackathon', hackathon_id=hackathon._id|string) }}" class="btn btn-primary">Register Now</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No upcoming hackathons scheduled yet.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Past Hackathons -->
         <div class="row">
             <div class="col-12">
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Coming soon! Check back later for upcoming hackathons.
-                </div>
+                <h2 class="mb-4">
+                    <i class="fas fa-history text-secondary me-2"></i>
+                    Past Hackathons
+                </h2>
+                {% if past_hackathons %}
+                    <div class="row">
+                        {% for hackathon in past_hackathons %}
+                            <div class="col-lg-4 col-md-6 mb-4">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <span class="badge bg-secondary mb-2">Completed</span>
+                                        <h5 class="card-title">{{ hackathon.get('title', 'Untitled Hackathon') }}</h5>
+                                        <p class="card-text">{{ hackathon.get('description', 'No description available.')[:150] }}...</p>
+                                        <div class="mb-3">
+                                            <small class="text-muted">
+                                                <i class="far fa-calendar-check me-1"></i>
+                                                Ended: {{ hackathon.end_date.strftime('%B %d, %Y') if hackathon.end_date else 'Date not set' }}
+                                            </small>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <a href="{{ url_for('view_hackathon', hackathon_id=hackathon._id|string) }}" class="btn btn-outline-primary">View Details</a>
+                                            <button class="btn btn-secondary" disabled>Completed</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No past hackathons to display.
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>

@@ -17,7 +17,7 @@
 <section class="py-5">
     <div class="container">
         <div class="row justify-content-center">
-            <div class="col-lg-5 col-md-8">
+            <div class="col-lg-6 col-md-8">
                 <div class="card shadow">
                     <div class="card-body p-5">
                         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -31,25 +31,69 @@
                             {% endif %}
                         {% endwith %}
                         
-                        <form method="POST" action="{{ url_for('login') }}">
-                            <div class="mb-4">
-                                <label for="email" class="form-label">Email Address</label>
-                                <input type="email" class="form-control" id="email" name="email" required>
+                        <ul class="nav nav-pills nav-justified mb-4" id="loginTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="participant-tab" data-bs-toggle="pill" data-bs-target="#participant" type="button" role="tab" aria-controls="participant" aria-selected="true">
+                                    <i class="fas fa-user me-2"></i>Participant
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="organizer-tab" data-bs-toggle="pill" data-bs-target="#organizer" type="button" role="tab" aria-controls="organizer" aria-selected="false">
+                                    <i class="fas fa-user-tie me-2"></i>Organizer
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content" id="loginTabsContent">
+                            <!-- Participant Login Form -->
+                            <div class="tab-pane fade show active" id="participant" role="tabpanel" aria-labelledby="participant-tab">
+                                <form method="POST" action="{{ url_for('login') }}">
+                                    <input type="hidden" name="user_type" value="participant">
+                                    <div class="mb-4">
+                                        <label for="participant_email" class="form-label">Email Address</label>
+                                        <input type="email" class="form-control" id="participant_email" name="email" required>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="participant_password" class="form-label">Password</label>
+                                        <input type="password" class="form-control" id="participant_password" name="password" required>
+                                    </div>
+                                    <div class="mb-4 form-check">
+                                        <input type="checkbox" class="form-check-input" id="participant_remember" name="remember">
+                                        <label class="form-check-label" for="participant_remember">Remember me</label>
+                                    </div>
+                                    <div class="d-grid gap-2">
+                                        <button type="submit" class="btn btn-primary btn-lg">Login as Participant</button>
+                                    </div>
+                                </form>
+                                <div class="text-center mt-4">
+                                    <p class="mb-0">Don't have an account? <a href="{{ url_for('register', user_type='participant') }}">Register as Participant</a></p>
+                                </div>
                             </div>
-                            <div class="mb-4">
-                                <label for="password" class="form-label">Password</label>
-                                <input type="password" class="form-control" id="password" name="password" required>
+                            
+                            <!-- Organizer Login Form -->
+                            <div class="tab-pane fade" id="organizer" role="tabpanel" aria-labelledby="organizer-tab">
+                                <form method="POST" action="{{ url_for('login') }}">
+                                    <input type="hidden" name="user_type" value="organizer">
+                                    <div class="mb-4">
+                                        <label for="organizer_email" class="form-label">Email Address</label>
+                                        <input type="email" class="form-control" id="organizer_email" name="email" required>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="organizer_password" class="form-label">Password</label>
+                                        <input type="password" class="form-control" id="organizer_password" name="password" required>
+                                    </div>
+                                    <div class="mb-4 form-check">
+                                        <input type="checkbox" class="form-check-input" id="organizer_remember" name="remember">
+                                        <label class="form-check-label" for="organizer_remember">Remember me</label>
+                                    </div>
+                                    <div class="d-grid gap-2">
+                                        <button type="submit" class="btn btn-success btn-lg">Login as Organizer</button>
+                                    </div>
+                                </form>
+                                <div class="text-center mt-4">
+                                    <p class="mb-0">Don't have an account? <a href="{{ url_for('register', user_type='organizer') }}">Register as Organizer</a></p>
+                                </div>
                             </div>
-                            <div class="mb-4 form-check">
-                                <input type="checkbox" class="form-check-input" id="remember" name="remember">
-                                <label class="form-check-label" for="remember">Remember me</label>
-                            </div>
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-primary btn-lg">Login</button>
-                            </div>
-                        </form>
-                        <div class="text-center mt-4">
-                            <p class="mb-0">Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
                         </div>
                     </div>
                 </div>

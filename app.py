@@ -2,24 +2,23 @@
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_pymongo import PyMongo
-from bson.objectid import ObjectId
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+from bson.objectid import ObjectId
+from datetime import datetime, timedelta
 import os
-from datetime import datetime
+from functools import wraps
 
 app = Flask(__name__)
-app.config["MONGO_URI"] = "mongodb://localhost:27017/hackathon_db"
-app.secret_key = 'your-secret-key-here'  # Fixed secret key instead of random
+app.secret_key = 'your-secret-key'  # Change this to a secure secret key
 
-# Initialize MongoDB
-try:
-    mongo = PyMongo(app)
-    # Test the connection
-    mongo.db.command('ping')
-    print("MongoDB connection successful!")
-except Exception as e:
-    print(f"MongoDB connection error: {str(e)}")
-    raise e
+# Configure upload folder
+app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# MongoDB configuration
+app.config['MONGO_URI'] = 'mongodb://localhost:27017/hackathon_db'
+mongo = PyMongo(app)
 
 # Database collections
 users = mongo.db.users
@@ -30,67 +29,123 @@ submissions = mongo.db.submissions
 judges = mongo.db.judges
 evaluations = mongo.db.evaluations
 notifications = mongo.db.notifications
+rounds = mongo.db.rounds
+
+# Login required decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please log in to access this page', 'warning')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Routes
 @app.route('/')
 def index():
-    upcoming_hackathons = list(hackathons.find({"start_date": {"$gte": datetime.now()}}).sort("start_date", 1).limit(3))
-    return render_template('index.html', hackathons=upcoming_hackathons)
+    # Get upcoming hackathons for the homepage
+    upcoming = list(hackathons.find({
+        'start_date': {'$gte': datetime.now()}
+    }).sort('start_date', 1).limit(3))
+    return render_template('index.html', upcoming_hackathons=upcoming)
 
 # User Authentication Routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        try:
+            email = request.form.get('email', '').strip().lower()
+            password = request.form.get('password', '')
+            user_type = request.form.get('user_type', 'participant')
+            
+            if not all([email, password]):
+                flash('Email and password are required.', 'danger')
+                return redirect(url_for('login'))
+            
+            user = users.find_one({'email': email})
+            print(f"Login attempt for email: {email}")
+            
+            if user and check_password_hash(user['password'], password):
+                # Check if user type matches
+                if user['role'] != user_type:
+                    flash(f'This account is registered as a {user["role"]}, not as a {user_type}.', 'warning')
+                    return redirect(url_for('login'))
+                
+                session['user_id'] = str(user['_id'])
+                session['user_email'] = user['email']
+                session['user_name'] = user['name']
+                session['user_role'] = user['role']
+                
+                flash('Login successful!', 'success')
+                return redirect(url_for('dashboard'))
+            else:
+                print(f"Login failed for email: {email}")
+                flash('Invalid email or password.', 'danger')
+                return redirect(url_for('login'))
+                
+        except Exception as e:
+            print(f"Login error: {str(e)}")
+            flash('An error occurred during login. Please try again.', 'danger')
+            return redirect(url_for('login'))
+    
+    return render_template('login.html')
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    user_type = request.args.get('user_type', 'participant')
+    
     if request.method == 'POST':
         try:
             # Get and validate form data
             name = request.form.get('name', '').strip()
             email = request.form.get('email', '').strip().lower()
             password = request.form.get('password', '')
-            skills_input = request.form.get('skills', '').strip()
+            user_type = request.form.get('user_type', 'participant')
             
             # Validate required fields
             if not all([name, email, password]):
                 flash('All fields are required.', 'danger')
                 return redirect(url_for('register'))
             
-            # Check if user already exists
+            # Check if email already exists
             existing_user = users.find_one({'email': email})
             if existing_user:
-                flash('Email already exists. Please login.', 'danger')
-                return redirect(url_for('login'))
-            
-            # Process skills
-            skills = [skill.strip() for skill in skills_input.split(',') if skill.strip()]
-            if not skills:
-                flash('Please enter at least one skill.', 'danger')
+                flash('Email already registered. Please login or use a different email.', 'warning')
                 return redirect(url_for('register'))
             
-            # Create new user
+            # Create new user document based on user type
             new_user = {
                 'name': name,
                 'email': email,
                 'password': generate_password_hash(password),
-                'role': 'participant',
-                'skills': skills,
+                'role': user_type,
                 'created_at': datetime.now()
             }
             
-            print(f"Attempting to insert user: {name} ({email})")
+            # Add user type specific fields
+            if user_type == 'participant':
+                skills_input = request.form.get('skills', '').strip()
+                skills = [skill.strip() for skill in skills_input.split(',') if skill.strip()]
+                new_user['skills'] = skills
+            elif user_type == 'organizer':
+                organization = request.form.get('organization', '').strip()
+                bio = request.form.get('bio', '').strip()
+                new_user['organization'] = organization
+                new_user['bio'] = bio
+                new_user['verified'] = False  # Organizers need verification
+            
+            # Insert the new user
             result = users.insert_one(new_user)
-            
-            if not result.inserted_id:
-                flash('Registration failed. Please try again.', 'danger')
-                return redirect(url_for('register'))
-            
             user_id = result.inserted_id
-            print(f"User created with ID: {user_id}")
             
             # Create welcome notification
             try:
                 notifications.insert_one({
                     'user_id': user_id,
                     'title': 'Welcome to HackHub!',
-                    'message': f'Welcome {name}! Your account has been created successfully.',
+                    'message': f'Welcome {name}! Thanks for joining our platform.',
+                    'type': 'welcome',
                     'read': False,
                     'created_at': datetime.now()
                 })
@@ -106,40 +161,7 @@ def register():
             flash('An error occurred during registration. Please try again.', 'danger')
             return redirect(url_for('register'))
     
-    return render_template('register.html')
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        try:
-            email = request.form.get('email', '').strip().lower()
-            password = request.form.get('password', '')
-            
-            if not all([email, password]):
-                flash('Email and password are required.', 'danger')
-                return redirect(url_for('login'))
-            
-            user = users.find_one({'email': email})
-            print(f"Login attempt for email: {email}")
-            
-            if user and check_password_hash(user['password'], password):
-                session['user_id'] = str(user['_id'])
-                session['user_role'] = user.get('role', 'participant')
-                session['user_name'] = user['name']
-                print(f"Login successful for user: {user['name']}")
-                flash('Login successful!', 'success')
-                return redirect(url_for('dashboard'))
-            else:
-                print(f"Login failed for email: {email}")
-                flash('Invalid email or password.', 'danger')
-                return redirect(url_for('login'))
-                
-        except Exception as e:
-            print(f"Login error: {str(e)}")
-            flash('An error occurred during login. Please try again.', 'danger')
-            return redirect(url_for('login'))
-    
-    return render_template('login.html')
+    return render_template('register.html', user_type=user_type)
 
 @app.route('/logout')
 def logout():
@@ -169,9 +191,49 @@ def dashboard():
             'read': False
         }).sort('created_at', -1))
         
-        return render_template('dashboard.html', 
-                             user=user, 
-                             notifications=user_notifications)
+        # Get role-specific data
+        if user['role'] == 'organizer':
+            # Get organizer's hackathons
+            organizer_hackathons = list(hackathons.find({
+                'organizer_id': user_id
+            }).sort('created_at', -1))
+            
+            # Get total participants across all hackathons
+            total_participants = 0
+            for hackathon in organizer_hackathons:
+                hackathon_teams = teams.find({'hackathon_id': hackathon['_id']})
+                for team in hackathon_teams:
+                    total_participants += len(team.get('members', []))
+            
+            return render_template('dashboard.html', 
+                                 user=user, 
+                                 notifications=user_notifications,
+                                 hackathons=organizer_hackathons,
+                                 total_participants=total_participants)
+        else:
+            # Get participant's teams
+            participant_teams = list(teams.find({
+                'members': user_id
+            }))
+            
+            # Get hackathons the participant is registered for
+            participant_hackathon_ids = [team['hackathon_id'] for team in participant_teams]
+            participant_hackathons = list(hackathons.find({
+                '_id': {'$in': participant_hackathon_ids}
+            }))
+            
+            # Get participant's projects
+            team_ids = [team['_id'] for team in participant_teams]
+            participant_projects = list(projects.find({
+                'team_id': {'$in': team_ids}
+            }))
+            
+            return render_template('dashboard.html', 
+                                 user=user, 
+                                 notifications=user_notifications,
+                                 teams=participant_teams,
+                                 hackathons=participant_hackathons,
+                                 projects=participant_projects)
                              
     except Exception as e:
         print(f"Dashboard error: {str(e)}")
@@ -179,10 +241,62 @@ def dashboard():
         return redirect(url_for('login'))
 
 # Hackathon Routes
-@app.route('/hackathons')
+@app.route('/list_hackathons')
 def list_hackathons():
-    all_hackathons = list(hackathons.find())
-    return render_template('hackathons.html', hackathons=all_hackathons)
+    try:
+        print("Fetching hackathons...")
+        current_time = datetime.now()
+        
+        # Get ongoing hackathons
+        ongoing_hackathons = list(mongo.db.hackathons.find({
+            'start_date': {'$lte': current_time},
+            'end_date': {'$gte': current_time}
+        }))
+        print(f"Found {len(ongoing_hackathons)} ongoing hackathons")
+        
+        # Get upcoming hackathons
+        upcoming_hackathons = list(mongo.db.hackathons.find({
+            'start_date': {'$gt': current_time}
+        }))
+        print(f"Found {len(upcoming_hackathons)} upcoming hackathons")
+        
+        # Get past hackathons
+        past_hackathons = list(mongo.db.hackathons.find({
+            'end_date': {'$lt': current_time}
+        }))
+        print(f"Found {len(past_hackathons)} past hackathons")
+        
+        # Ensure all hackathons have required fields
+        for hackathon in ongoing_hackathons + upcoming_hackathons + past_hackathons:
+            if '_id' not in hackathon:
+                print(f"Warning: Hackathon missing _id: {hackathon}")
+                continue
+                
+            # Convert string dates to datetime if needed
+            if isinstance(hackathon.get('start_date'), str):
+                try:
+                    hackathon['start_date'] = datetime.strptime(hackathon['start_date'], '%Y-%m-%dT%H:%M:%S')
+                except:
+                    print(f"Error parsing start_date for hackathon {hackathon['_id']}")
+                    
+            if isinstance(hackathon.get('end_date'), str):
+                try:
+                    hackathon['end_date'] = datetime.strptime(hackathon['end_date'], '%Y-%m-%dT%H:%M:%S')
+                except:
+                    print(f"Error parsing end_date for hackathon {hackathon['_id']}")
+        
+        return render_template('hackathons.html',
+                             ongoing_hackathons=ongoing_hackathons,
+                             upcoming_hackathons=upcoming_hackathons,
+                             past_hackathons=past_hackathons)
+                             
+    except Exception as e:
+        print(f"Error listing hackathons: {str(e)}")
+        flash('An error occurred while loading hackathons.', 'danger')
+        return render_template('hackathons.html',
+                             ongoing_hackathons=[],
+                             upcoming_hackathons=[],
+                             past_hackathons=[])
 
 @app.route('/hackathons/create', methods=['GET', 'POST'])
 def create_hackathon():
@@ -281,7 +395,71 @@ def edit_hackathon(hackathon_id):
     
     return render_template('edit_hackathon.html', hackathon=hackathon)
 
-# Team Routes
+@app.route('/hackathon/<hackathon_id>')
+def view_hackathon(hackathon_id):
+    try:
+        print(f"Attempting to view hackathon with ID: {hackathon_id}")
+        
+        # Validate hackathon_id format
+        if not ObjectId.is_valid(hackathon_id):
+            print(f"Invalid hackathon ID format: {hackathon_id}")
+            flash('Invalid hackathon ID.', 'danger')
+            return redirect(url_for('list_hackathons'))
+        
+        # Get hackathon details
+        hackathon = mongo.db.hackathons.find_one({'_id': ObjectId(hackathon_id)})
+        print(f"Found hackathon: {hackathon}")
+        
+        if not hackathon:
+            print(f"Hackathon not found with ID: {hackathon_id}")
+            flash('Hackathon not found.', 'danger')
+            return redirect(url_for('list_hackathons'))
+        
+        # Get registered teams
+        teams_list = list(mongo.db.teams.find({'hackathon_id': ObjectId(hackathon_id)}))
+        print(f"Found {len(teams_list)} teams")
+        
+        # Calculate total participants
+        total_participants = sum(len(team.get('members', [])) for team in teams_list)
+        print(f"Total participants: {total_participants}")
+        
+        # Set hackathon status based on current time
+        current_time = datetime.now()
+        
+        # Convert string dates to datetime if needed
+        if isinstance(hackathon.get('start_date'), str):
+            try:
+                hackathon['start_date'] = datetime.strptime(hackathon['start_date'], '%Y-%m-%dT%H:%M:%S')
+            except:
+                print(f"Error parsing start_date for hackathon {hackathon['_id']}")
+                
+        if isinstance(hackathon.get('end_date'), str):
+            try:
+                hackathon['end_date'] = datetime.strptime(hackathon['end_date'], '%Y-%m-%dT%H:%M:%S')
+            except:
+                print(f"Error parsing end_date for hackathon {hackathon['_id']}")
+        
+        # Set status based on dates
+        if current_time < hackathon['start_date']:
+            hackathon['status'] = 'upcoming'
+        elif current_time > hackathon['end_date']:
+            hackathon['status'] = 'completed'
+        else:
+            hackathon['status'] = 'ongoing'
+            
+        print(f"Hackathon status: {hackathon['status']}")
+        
+        return render_template('view_hackathon.html',
+                             hackathon=hackathon,
+                             teams=teams_list,
+                             total_teams=len(teams_list),
+                             total_participants=total_participants)
+                             
+    except Exception as e:
+        print(f"Error viewing hackathon: {str(e)}")
+        flash('An error occurred while loading the hackathon details.', 'danger')
+        return redirect(url_for('list_hackathons'))
+
 @app.route('/hackathons/<hackathon_id>/teams/create', methods=['GET', 'POST'])
 def create_team(hackathon_id):
     if 'user_id' not in session:
@@ -690,6 +868,208 @@ def hackathon_results(hackathon_id):
     return render_template('hackathon_results.html', 
                           hackathon=hackathon, 
                           results=results)
+
+@app.route('/hackathon/<hackathon_id>/register', methods=['GET', 'POST'])
+def register_hackathon(hackathon_id):
+    if 'user_id' not in session:
+        flash('Please login to register for hackathons.', 'warning')
+        return redirect(url_for('login'))
+    
+    try:
+        # Get user and hackathon details
+        user_id = ObjectId(session['user_id'])
+        user = mongo.db.users.find_one({'_id': user_id})
+        hackathon = mongo.db.hackathons.find_one({'_id': ObjectId(hackathon_id)})
+        
+        if not hackathon:
+            flash('Hackathon not found.', 'danger')
+            return redirect(url_for('list_hackathons'))
+            
+        if hackathon.get('status') == 'completed':
+            flash('This hackathon has already ended.', 'warning')
+            return redirect(url_for('view_hackathon', hackathon_id=hackathon_id))
+            
+        # Check if user is already registered
+        existing_team = mongo.db.teams.find_one({
+            'hackathon_id': ObjectId(hackathon_id),
+            'members': user_id
+        })
+        
+        if existing_team:
+            flash('You are already registered for this hackathon.', 'info')
+            return redirect(url_for('view_hackathon', hackathon_id=hackathon_id))
+        
+        if request.method == 'POST':
+            team_name = request.form.get('team_name')
+            team_description = request.form.get('team_description')
+            looking_for_members = 'looking_for_members' in request.form
+            
+            # Validate team name
+            if not team_name:
+                flash('Team name is required.', 'danger')
+                return render_template('register_hackathon.html', hackathon=hackathon)
+                
+            # Check if team name is already taken
+            existing_team = mongo.db.teams.find_one({
+                'hackathon_id': ObjectId(hackathon_id),
+                'name': team_name
+            })
+            
+            if existing_team:
+                flash('Team name is already taken.', 'danger')
+                return render_template('register_hackathon.html', hackathon=hackathon)
+            
+            # Create new team
+            team = {
+                'name': team_name,
+                'description': team_description,
+                'hackathon_id': ObjectId(hackathon_id),
+                'leader_id': user_id,
+                'members': [user_id],
+                'looking_for_members': looking_for_members,
+                'created_at': datetime.now()
+            }
+            
+            mongo.db.teams.insert_one(team)
+            
+            # Create notification
+            notification = {
+                'user_id': user_id,
+                'title': f'Welcome to {team_name}!',
+                'message': f'You have successfully registered for {hackathon["title"]} with team {team_name}.',
+                'read': False,
+                'created_at': datetime.now()
+            }
+            mongo.db.notifications.insert_one(notification)
+            
+            flash('Successfully registered for the hackathon!', 'success')
+            return redirect(url_for('view_hackathon', hackathon_id=hackathon_id))
+            
+        return render_template('register_hackathon.html', hackathon=hackathon)
+        
+    except Exception as e:
+        print(f"Error registering for hackathon: {str(e)}")
+        flash('An error occurred while registering for the hackathon.', 'danger')
+        return redirect(url_for('view_hackathon', hackathon_id=hackathon_id))
+
+@app.route('/hackathon/<hackathon_id>/rounds')
+@login_required
+def hackathon_rounds(hackathon_id):
+    hackathon = mongo.db.hackathons.find_one({'_id': ObjectId(hackathon_id)})
+    if not hackathon:
+        flash('Hackathon not found', 'error')
+        return redirect(url_for('hackathons'))
+    
+    # Get user's team for this hackathon
+    team = mongo.db.teams.find_one({
+        'hackathon_id': ObjectId(hackathon_id),
+        'members': ObjectId(session['user_id'])
+    })
+    
+    if not team:
+        flash('You must be part of a team to view rounds', 'warning')
+        return redirect(url_for('view_hackathon', hackathon_id=hackathon_id))
+    
+    # Get team members' information
+    team_members = []
+    for member_id in team['members']:
+        user = mongo.db.users.find_one({'_id': member_id})
+        if user:
+            team_members.append({
+                'id': str(user['_id']),
+                'name': user['name'],
+                'email': user['email']
+            })
+    
+    # Get all rounds
+    rounds_data = list(mongo.db.rounds.find().sort('round_number', 1))
+    
+    # Get team's submissions
+    submissions = {
+        sub['round_number']: sub
+        for sub in mongo.db.submissions.find({
+            'team_id': team['_id'],
+            'hackathon_id': ObjectId(hackathon_id)
+        })
+    }
+    
+    # Determine current round
+    current_round = 1
+    for round_num in range(1, 4):
+        if round_num in submissions:
+            current_round = round_num + 1
+    current_round = min(current_round, 3)
+    
+    return render_template('hackathon_rounds.html',
+                         hackathon=hackathon,
+                         team=team,
+                         team_members=team_members,
+                         current_round=current_round,
+                         round1_submission=submissions.get(1),
+                         round2_submission=submissions.get(2),
+                         round3_submission=submissions.get(3))
+
+@app.route('/hackathon/<hackathon_id>/submit/<int:round_number>', methods=['POST'])
+@login_required
+def submit_round(hackathon_id, round_number):
+    hackathon = mongo.db.hackathons.find_one({'_id': ObjectId(hackathon_id)})
+    if not hackathon:
+        flash('Hackathon not found', 'error')
+        return redirect(url_for('hackathons'))
+    
+    team = mongo.db.teams.find_one({
+        'hackathon_id': ObjectId(hackathon_id),
+        'members': ObjectId(session['user_id'])
+    })
+    
+    if not team:
+        flash('You must be part of a team to submit', 'error')
+        return redirect(url_for('view_hackathon', hackathon_id=hackathon_id))
+    
+    # Get round requirements
+    round_info = mongo.db.rounds.find_one({'round_number': round_number})
+    if not round_info:
+        flash('Invalid round', 'error')
+        return redirect(url_for('hackathon_rounds', hackathon_id=hackathon_id))
+    
+    # Validate submission
+    submission_data = {
+        'team_id': team['_id'],
+        'hackathon_id': ObjectId(hackathon_id),
+        'round_number': round_number,
+        'submitted_at': datetime.utcnow(),
+        'submitted_by': ObjectId(session['user_id'])
+    }
+    
+    # Handle file uploads and form data
+    for req in round_info['requirements']:
+        if req.endswith('_url'):
+            submission_data[req] = request.form.get(req)
+        elif req in request.files:
+            file = request.files[req]
+            if file:
+                filename = secure_filename(f"{team['_id']}_{round_number}_{req}_{file.filename}")
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                submission_data[req] = filename
+        else:
+            submission_data[req] = request.form.get(req)
+    
+    # Save submission
+    try:
+        mongo.db.submissions.update_one(
+            {
+                'team_id': team['_id'],
+                'hackathon_id': ObjectId(hackathon_id),
+                'round_number': round_number
+            },
+            {'$set': submission_data},
+            upsert=True
+        )
+        flash('Submission successful!', 'success')
+    except Exception as e:
+        flash('Error saving submission. Please try again.', 'error')
+    
+    return redirect(url_for('hackathon_rounds', hackathon_id=hackathon_id))
 
 # Main execution
 if __name__ == '__main__':
