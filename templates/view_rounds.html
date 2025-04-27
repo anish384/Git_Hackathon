@@ -1,0 +1,431 @@
+{% extends "base.html" %}
+
+{% block title %}Hackathon Rounds | HackHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h1>{{ hackathon.title }} - Rounds</h1>
+                <p class="lead">Manage the 3-round structure for this hackathon</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="py-5">
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Hackathon Progress</h5>
+                        <div class="progress mb-3" style="height: 25px;">
+                            {% set progress = 0 %}
+                            {% if hackathon.current_round == 1 %}
+                                {% set progress = 33 %}
+                            {% elif hackathon.current_round == 2 %}
+                                {% set progress = 66 %}
+                            {% elif hackathon.current_round == 3 %}
+                                {% set progress = 100 %}
+                            {% endif %}
+                            <div class="progress-bar bg-primary" role="progressbar" style="width: {{ progress }}%;" 
+                                aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100">
+                                Round {{ hackathon.current_round }}
+                            </div>
+                        </div>
+                        
+                        {% if user and (user.role == 'organizer' or user.role == 'admin') %}
+                        <form method="POST" action="{{ url_for('update_current_round', hackathon_id=hackathon._id) }}" class="mb-3">
+                            <div class="row align-items-end">
+                                <div class="col-md-8">
+                                    <label for="current_round" class="form-label">Current Round</label>
+                                    <select class="form-select" id="current_round" name="current_round">
+                                        <option value="1" {% if hackathon.current_round == 1 %}selected{% endif %}>Round 1 - Presentation Submission</option>
+                                        <option value="2" {% if hackathon.current_round == 2 %}selected{% endif %}>Round 2 - Project Progress Sharing</option>
+                                        <option value="3" {% if hackathon.current_round == 3 %}selected{% endif %}>Round 3 - Final Evaluation</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="submit" class="btn btn-primary w-100">Update Current Round</button>
+                                </div>
+                            </div>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Round 1: Presentation Submission -->
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 shadow-sm {% if hackathon.current_round == 1 %}border-primary{% endif %}">
+                    <div class="card-header {% if hackathon.current_round == 1 %}bg-primary text-white{% endif %}">
+                        <h5 class="mb-0">Round 1</h5>
+                        <small>Presentation Submission</small>
+                    </div>
+                    <div class="card-body">
+                        <p>Participants submit their initial presentation (PPT) for review.</p>
+                        
+                        {% if rounds.round1 %}
+                            <div class="mb-3">
+                                <strong>Deadline:</strong> {{ rounds.round1.deadline.strftime('%Y-%m-%d %H:%M') }}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Instructions:</strong> 
+                                <p>{{ rounds.round1.instructions }}</p>
+                            </div>
+                        {% endif %}
+                        
+                        {% if user and (user.role == 'organizer' or user.role == 'admin') %}
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#round1Modal">
+                                    Configure Round 1
+                                </button>
+                                <a href="{{ url_for('view_round_submissions', hackathon_id=hackathon._id, round_number=1) }}" class="btn btn-outline-secondary">
+                                    View Submissions
+                                </a>
+                            </div>
+                        {% elif user %}
+                            {% if hackathon.current_round >= 1 %}
+                                <div class="d-grid">
+                                    <a href="{{ url_for('submit_presentation', hackathon_id=hackathon._id) }}" class="btn btn-primary">
+                                        Submit Presentation
+                                    </a>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    This round is not yet active.
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Round 2: Project Progress Sharing -->
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 shadow-sm {% if hackathon.current_round == 2 %}border-primary{% endif %}">
+                    <div class="card-header {% if hackathon.current_round == 2 %}bg-primary text-white{% endif %}">
+                        <h5 class="mb-0">Round 2</h5>
+                        <small>Project Progress Sharing</small>
+                    </div>
+                    <div class="card-body">
+                        <p>Teams share their project progress via video conferencing.</p>
+                        
+                        {% if rounds.round2 %}
+                            <div class="mb-3">
+                                <strong>Schedule:</strong> {{ rounds.round2.schedule.strftime('%Y-%m-%d %H:%M') }}
+                            </div>
+                            {% if rounds.round2.meeting_link %}
+                                <div class="mb-3">
+                                    <strong>Meeting Link:</strong> 
+                                    <a href="{{ rounds.round2.meeting_link }}" target="_blank">
+                                        {{ rounds.round2.meeting_link }}
+                                    </a>
+                                </div>
+                            {% endif %}
+                            <div class="mb-3">
+                                <strong>Instructions:</strong> 
+                                <p>{{ rounds.round2.instructions }}</p>
+                            </div>
+                        {% endif %}
+                        
+                        {% if user and (user.role == 'organizer' or user.role == 'admin') %}
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#round2Modal">
+                                    Configure Round 2
+                                </button>
+                                <a href="{{ url_for('view_round_feedback', hackathon_id=hackathon._id, round_number=2) }}" class="btn btn-outline-secondary">
+                                    View Feedback
+                                </a>
+                            </div>
+                        {% elif user %}
+                            {% if hackathon.current_round >= 2 %}
+                                <div class="d-grid">
+                                    <a href="{{ rounds.round2.meeting_link if rounds.round2 and rounds.round2.meeting_link else '#' }}" 
+                                       class="btn btn-primary {% if not rounds.round2 or not rounds.round2.meeting_link %}disabled{% endif %}" 
+                                       target="_blank">
+                                        Join Meeting
+                                    </a>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    This round is not yet active.
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Round 3: Final Evaluation -->
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 shadow-sm {% if hackathon.current_round == 3 %}border-primary{% endif %}">
+                    <div class="card-header {% if hackathon.current_round == 3 %}bg-primary text-white{% endif %}">
+                        <h5 class="mb-0">Round 3</h5>
+                        <small>Final Evaluation</small>
+                    </div>
+                    <div class="card-body">
+                        <p>Final round where jury evaluates projects and selects winners.</p>
+                        
+                        {% if rounds.round3 %}
+                            <div class="mb-3">
+                                <strong>Evaluation Date:</strong> {{ rounds.round3.evaluation_date.strftime('%Y-%m-%d %H:%M') }}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Instructions:</strong> 
+                                <p>{{ rounds.round3.instructions }}</p>
+                            </div>
+                        {% endif %}
+                        
+                        {% if user and (user.role == 'organizer' or user.role == 'admin') %}
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#round3Modal">
+                                    Configure Round 3
+                                </button>
+                                <a href="{{ url_for('manage_jury_evaluation', hackathon_id=hackathon._id) }}" class="btn btn-outline-secondary">
+                                    Manage Jury Evaluation
+                                </a>
+                            </div>
+                        {% elif user and user.role == 'judge' %}
+                            {% if hackathon.current_round >= 3 %}
+                                <div class="d-grid">
+                                    <a href="{{ url_for('jury_evaluation', hackathon_id=hackathon._id) }}" class="btn btn-primary">
+                                        Evaluate Projects
+                                    </a>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    This round is not yet active.
+                                </div>
+                            {% endif %}
+                        {% elif user %}
+                            {% if hackathon.current_round >= 3 %}
+                                <div class="alert alert-info">
+                                    Final evaluations are in progress. Results will be announced soon.
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    This round is not yet active.
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Round 1 Configuration Modal -->
+<div class="modal fade" id="round1Modal" tabindex="-1" aria-labelledby="round1ModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="round1ModalLabel">Configure Round 1: Presentation Submission</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('configure_round', hackathon_id=hackathon._id, round_number=1) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="round1_deadline" class="form-label">Submission Deadline</label>
+                        <input type="datetime-local" class="form-control" id="round1_deadline" name="deadline" 
+                               value="{{ rounds.round1.deadline.strftime('%Y-%m-%dT%H:%M') if rounds.round1 and rounds.round1.deadline else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="round1_instructions" class="form-label">Instructions for Participants</label>
+                        <textarea class="form-control" id="round1_instructions" name="instructions" rows="5" required>{{ rounds.round1.instructions if rounds.round1 else 'Please submit your initial presentation (PPT/PDF) outlining your project idea, approach, and implementation plan.' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="round1_allowed_formats" class="form-label">Allowed File Formats</label>
+                        <input type="text" class="form-control" id="round1_allowed_formats" name="allowed_formats" 
+                               value="{{ rounds.round1.allowed_formats if rounds.round1 else 'ppt,pptx,pdf' }}" 
+                               placeholder="ppt,pptx,pdf">
+                        <div class="form-text">Comma-separated list of allowed file extensions</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Round 2 Configuration Modal -->
+<div class="modal fade" id="round2Modal" tabindex="-1" aria-labelledby="round2ModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="round2ModalLabel">Configure Round 2: Project Progress Sharing</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('configure_round', hackathon_id=hackathon._id, round_number=2) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="round2_schedule" class="form-label">Meeting Schedule</label>
+                        <input type="datetime-local" class="form-control" id="round2_schedule" name="schedule" 
+                               value="{{ rounds.round2.schedule.strftime('%Y-%m-%dT%H:%M') if rounds.round2 and rounds.round2.schedule else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="round2_meeting_link" class="form-label">Meeting Link (Google Meet/Zoom)</label>
+                        <input type="url" class="form-control" id="round2_meeting_link" name="meeting_link" 
+                               value="{{ rounds.round2.meeting_link if rounds.round2 else '' }}" 
+                               placeholder="https://meet.google.com/xxx-xxxx-xxx">
+                    </div>
+                    <div class="mb-3">
+                        <label for="round2_instructions" class="form-label">Instructions for Participants</label>
+                        <textarea class="form-control" id="round2_instructions" name="instructions" rows="5" required>{{ rounds.round2.instructions if rounds.round2 else 'Be prepared to share your screen and demonstrate your project progress. Each team will have 10 minutes for presentation and 5 minutes for Q&A.' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="round2_duration" class="form-label">Time Allocation per Team (minutes)</label>
+                        <input type="number" class="form-control" id="round2_duration" name="duration" 
+                               value="{{ rounds.round2.duration if rounds.round2 else '15' }}" min="5" max="60">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Round 3 Configuration Modal -->
+<div class="modal fade" id="round3Modal" tabindex="-1" aria-labelledby="round3ModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="round3ModalLabel">Configure Round 3: Final Evaluation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('configure_round', hackathon_id=hackathon._id, round_number=3) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="round3_evaluation_date" class="form-label">Evaluation Date</label>
+                        <input type="datetime-local" class="form-control" id="round3_evaluation_date" name="evaluation_date" 
+                               value="{{ rounds.round3.evaluation_date.strftime('%Y-%m-%dT%H:%M') if rounds.round3 and rounds.round3.evaluation_date else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="round3_instructions" class="form-label">Instructions for Jury</label>
+                        <textarea class="form-control" id="round3_instructions" name="instructions" rows="5" required>{{ rounds.round3.instructions if rounds.round3 else 'Evaluate each project based on innovation, technical complexity, completeness, and presentation quality. Rate each criterion on a scale of 1-10.' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Evaluation Criteria</label>
+                        <div class="row" id="criteria-container">
+                            {% if rounds.round3 and rounds.round3.criteria %}
+                                {% for criterion in rounds.round3.criteria %}
+                                    <div class="col-md-6 mb-2 criterion-item">
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" name="criteria[]" value="{{ criterion }}" placeholder="Criterion name">
+                                            <button type="button" class="btn btn-outline-danger remove-criterion">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="col-md-6 mb-2 criterion-item">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" name="criteria[]" value="Innovation" placeholder="Criterion name">
+                                        <button type="button" class="btn btn-outline-danger remove-criterion">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-2 criterion-item">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" name="criteria[]" value="Technical Complexity" placeholder="Criterion name">
+                                        <button type="button" class="btn btn-outline-danger remove-criterion">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-2 criterion-item">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" name="criteria[]" value="Completeness" placeholder="Criterion name">
+                                        <button type="button" class="btn btn-outline-danger remove-criterion">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-2 criterion-item">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" name="criteria[]" value="Presentation Quality" placeholder="Criterion name">
+                                        <button type="button" class="btn btn-outline-danger remove-criterion">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="add-criterion">
+                                <i class="fas fa-plus"></i> Add Criterion
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add criterion functionality
+        const criteriaContainer = document.getElementById('criteria-container');
+        const addCriterionBtn = document.getElementById('add-criterion');
+        
+        if (addCriterionBtn) {
+            addCriterionBtn.addEventListener('click', function() {
+                const criterionItem = document.createElement('div');
+                criterionItem.className = 'col-md-6 mb-2 criterion-item';
+                criterionItem.innerHTML = `
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="criteria[]" placeholder="Criterion name">
+                        <button type="button" class="btn btn-outline-danger remove-criterion">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+                criteriaContainer.appendChild(criterionItem);
+                
+                // Add event listener to the new remove button
+                const removeBtn = criterionItem.querySelector('.remove-criterion');
+                removeBtn.addEventListener('click', function() {
+                    criteriaContainer.removeChild(criterionItem);
+                });
+            });
+        }
+        
+        // Add event listeners to existing remove buttons
+        document.querySelectorAll('.remove-criterion').forEach(button => {
+            button.addEventListener('click', function() {
+                const criterionItem = this.closest('.criterion-item');
+                criterionItem.parentNode.removeChild(criterionItem);
+            });
+        });
+    });
+</script>
+{% endblock %}

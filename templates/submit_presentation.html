@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Submit Presentation | HackHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h1>Submit Presentation</h1>
+                <p class="lead">{{ hackathon.title }} - Round 1</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card shadow">
+                    <div class="card-body p-5">
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+                        
+                        <div class="alert alert-info mb-4">
+                            <h5 class="alert-heading">Instructions</h5>
+                            <p>{{ round_info.instructions }}</p>
+                            <hr>
+                            <p class="mb-0">
+                                <strong>Deadline:</strong> {{ round_info.deadline.strftime('%Y-%m-%d %H:%M') }}
+                                <br>
+                                <strong>Allowed Formats:</strong> {{ round_info.allowed_formats }}
+                            </p>
+                        </div>
+                        
+                        {% if existing_submission %}
+                            <div class="alert alert-success mb-4">
+                                <h5 class="alert-heading">Submission Received</h5>
+                                <p>You have already submitted your presentation for Round 1.</p>
+                                <hr>
+                                <p class="mb-0">
+                                    <strong>Submitted:</strong> {{ existing_submission.submitted_at.strftime('%Y-%m-%d %H:%M') }}
+                                    <br>
+                                    <strong>File:</strong> {{ existing_submission.file_name }}
+                                </p>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <a href="{{ url_for('download_submission', submission_id=existing_submission._id) }}" class="btn btn-primary">
+                                    <i class="fas fa-download"></i> Download Your Submission
+                                </a>
+                                
+                                {% if current_time < round_info.deadline %}
+                                    <button type="button" class="btn btn-warning" data-bs-toggle="collapse" data-bs-target="#updateSubmissionForm">
+                                        <i class="fas fa-edit"></i> Update Submission
+                                    </button>
+                                {% endif %}
+                            </div>
+                            
+                            {% if current_time < round_info.deadline %}
+                                <div class="collapse" id="updateSubmissionForm">
+                                    <div class="card card-body bg-light mb-4">
+                                        <h5 class="card-title">Update Your Submission</h5>
+                                        <form method="POST" enctype="multipart/form-data" action="{{ url_for('submit_presentation', hackathon_id=hackathon._id) }}">
+                                            <input type="hidden" name="submission_id" value="{{ existing_submission._id }}">
+                                            
+                                            <div class="mb-3">
+                                                <label for="presentation_file" class="form-label">Presentation File</label>
+                                                <input type="file" class="form-control" id="presentation_file" name="presentation_file" required>
+                                                <div class="form-text">Allowed formats: {{ round_info.allowed_formats }}</div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="notes" class="form-label">Notes for Organizers (Optional)</label>
+                                                <textarea class="form-control" id="notes" name="notes" rows="3">{{ existing_submission.notes }}</textarea>
+                                            </div>
+                                            
+                                            <div class="d-grid">
+                                                <button type="submit" class="btn btn-warning">Update Submission</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            {% if current_time < round_info.deadline %}
+                                <form method="POST" enctype="multipart/form-data">
+                                    <div class="mb-4">
+                                        <label for="presentation_file" class="form-label">Presentation File</label>
+                                        <input type="file" class="form-control" id="presentation_file" name="presentation_file" required>
+                                        <div class="form-text">Allowed formats: {{ round_info.allowed_formats }}</div>
+                                    </div>
+                                    
+                                    <div class="mb-4">
+                                        <label for="notes" class="form-label">Notes for Organizers (Optional)</label>
+                                        <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Any additional information you'd like to share with the organizers"></textarea>
+                                    </div>
+                                    
+                                    <div class="d-grid">
+                                        <button type="submit" class="btn btn-primary">Submit Presentation</button>
+                                    </div>
+                                </form>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <h5 class="alert-heading">Submission Deadline Passed</h5>
+                                    <p>The deadline for Round 1 submissions has passed. If you believe this is an error, please contact the hackathon organizers.</p>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('view_rounds', hackathon_id=hackathon._id) }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Rounds
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

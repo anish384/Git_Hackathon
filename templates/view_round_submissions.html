@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Round Submissions | HackHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h1>{{ hackathon.title }} - Round {{ round_number }} Submissions</h1>
+                <p class="lead">Review participant submissions for this round</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="py-5">
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="card-title mb-0">
+                                {% if round_number == 1 %}
+                                    Presentation Submissions
+                                {% elif round_number == 2 %}
+                                    Project Progress Feedback
+                                {% elif round_number == 3 %}
+                                    Final Evaluation Results
+                                {% endif %}
+                            </h5>
+                            <a href="{{ url_for('view_rounds', hackathon_id=hackathon._id) }}" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-arrow-left"></i> Back to Rounds
+                            </a>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <h6 class="alert-heading">Round Information</h6>
+                            {% if round_number == 1 %}
+                                <p><strong>Deadline:</strong> {{ round_info.deadline.strftime('%Y-%m-%d %H:%M') }}</p>
+                                <p><strong>Allowed Formats:</strong> {{ round_info.allowed_formats }}</p>
+                            {% elif round_number == 2 %}
+                                <p><strong>Schedule:</strong> {{ round_info.schedule.strftime('%Y-%m-%d %H:%M') }}</p>
+                                <p><strong>Meeting Link:</strong> <a href="{{ round_info.meeting_link }}" target="_blank">{{ round_info.meeting_link }}</a></p>
+                            {% elif round_number == 3 %}
+                                <p><strong>Evaluation Date:</strong> {{ round_info.evaluation_date.strftime('%Y-%m-%d %H:%M') }}</p>
+                            {% endif %}
+                            <p><strong>Instructions:</strong> {{ round_info.instructions }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if submissions|length > 0 %}
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Team</th>
+                                            <th>Members</th>
+                                            <th>Submitted</th>
+                                            {% if round_number == 1 %}
+                                                <th>File</th>
+                                            {% elif round_number == 2 %}
+                                                <th>Feedback</th>
+                                            {% elif round_number == 3 %}
+                                                <th>Score</th>
+                                            {% endif %}
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for submission in submissions %}
+                                            <tr>
+                                                <td>{{ submission.team_name }}</td>
+                                                <td>
+                                                    {% for member in submission.team_members %}
+                                                        <span class="badge bg-light text-dark">{{ member.name }}</span>
+                                                    {% endfor %}
+                                                </td>
+                                                <td>{{ submission.submitted_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                                {% if round_number == 1 %}
+                                                    <td>
+                                                        <a href="{{ url_for('download_submission', submission_id=submission._id) }}">
+                                                            {{ submission.file_name }}
+                                                        </a>
+                                                    </td>
+                                                {% elif round_number == 2 %}
+                                                    <td>
+                                                        {% if submission.feedback %}
+                                                            <span class="text-success">Provided</span>
+                                                        {% else %}
+                                                            <span class="text-danger">Not provided</span>
+                                                        {% endif %}
+                                                    </td>
+                                                {% elif round_number == 3 %}
+                                                    <td>
+                                                        {% if submission.score %}
+                                                            <span class="badge bg-primary">{{ submission.score }}/10</span>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary">Not scored</span>
+                                                        {% endif %}
+                                                    </td>
+                                                {% endif %}
+                                                <td>
+                                                    <div class="btn-group">
+                                                        {% if round_number == 1 %}
+                                                            <a href="{{ url_for('download_submission', submission_id=submission._id) }}" class="btn btn-sm btn-outline-primary">
+                                                                <i class="fas fa-download"></i>
+                                                            </a>
+                                                            <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#feedbackModal{{ submission._id }}">
+                                                                <i class="fas fa-comment"></i>
+                                                            </button>
+                                                        {% elif round_number == 2 %}
+                                                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#feedbackModal{{ submission._id }}">
+                                                                <i class="fas fa-edit"></i> Feedback
+                                                            </button>
+                                                        {% elif round_number == 3 %}
+                                                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#scoreModal{{ submission._id }}">
+                                                                <i class="fas fa-star"></i> Score
+                                                            </button>
+                                                        {% endif %}
+                                                    </div>
+                                                    
+                                                    <!-- Feedback Modal for Round 1 & 2 -->
+                                                    {% if round_number == 1 or round_number == 2 %}
+                                                        <div class="modal fade" id="feedbackModal{{ submission._id }}" tabindex="-1" aria-hidden="true">
+                                                            <div class="modal-dialog">
+                                                                <div class="modal-content">
+                                                                    <div class="modal-header">
+                                                                        <h5 class="modal-title">
+                                                                            {% if round_number == 1 %}
+                                                                                Provide Feedback on Presentation
+                                                                            {% else %}
+                                                                                Provide Feedback on Progress
+                                                                            {% endif %}
+                                                                        </h5>
+                                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                                    </div>
+                                                                    <form method="POST" action="{{ url_for('provide_feedback', hackathon_id=hackathon._id, submission_id=submission._id, round_number=round_number) }}">
+                                                                        <div class="modal-body">
+                                                                            <div class="mb-3">
+                                                                                <label for="feedback{{ submission._id }}" class="form-label">Feedback</label>
+                                                                                <textarea class="form-control" id="feedback{{ submission._id }}" name="feedback" rows="5" required>{{ submission.feedback if submission.feedback else '' }}</textarea>
+                                                                            </div>
+                                                                            {% if round_number == 1 %}
+                                                                                <div class="form-check mb-3">
+                                                                                    <input class="form-check-input" type="checkbox" id="approved{{ submission._id }}" name="approved" {% if submission.approved %}checked{% endif %}>
+                                                                                    <label class="form-check-label" for="approved{{ submission._id }}">
+                                                                                        Approve for Round 2
+                                                                                    </label>
+                                                                                </div>
+                                                                            {% elif round_number == 2 %}
+                                                                                <div class="form-check mb-3">
+                                                                                    <input class="form-check-input" type="checkbox" id="approved{{ submission._id }}" name="approved" {% if submission.approved %}checked{% endif %}>
+                                                                                    <label class="form-check-label" for="approved{{ submission._id }}">
+                                                                                        Approve for Final Round
+                                                                                    </label>
+                                                                                </div>
+                                                                            {% endif %}
+                                                                        </div>
+                                                                        <div class="modal-footer">
+                                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                            <button type="submit" class="btn btn-primary">Save Feedback</button>
+                                                                        </div>
+                                                                    </form>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    {% endif %}
+                                                    
+                                                    <!-- Score Modal for Round 3 -->
+                                                    {% if round_number == 3 %}
+                                                        <div class="modal fade" id="scoreModal{{ submission._id }}" tabindex="-1" aria-hidden="true">
+                                                            <div class="modal-dialog">
+                                                                <div class="modal-content">
+                                                                    <div class="modal-header">
+                                                                        <h5 class="modal-title">Score Final Submission</h5>
+                                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                                    </div>
+                                                                    <form method="POST" action="{{ url_for('score_submission', hackathon_id=hackathon._id, submission_id=submission._id) }}">
+                                                                        <div class="modal-body">
+                                                                            {% for criterion in round_info.criteria %}
+                                                                                <div class="mb-3">
+                                                                                    <label for="criterion_{{ loop.index }}_{{ submission._id }}" class="form-label">{{ criterion }}</label>
+                                                                                    <select class="form-select" id="criterion_{{ loop.index }}_{{ submission._id }}" name="scores[{{ criterion }}]" required>
+                                                                                        <option value="" selected disabled>Select score</option>
+                                                                                        {% for i in range(1, 11) %}
+                                                                                            <option value="{{ i }}" {% if submission.scores and submission.scores[criterion] == i %}selected{% endif %}>{{ i }}</option>
+                                                                                        {% endfor %}
+                                                                                    </select>
+                                                                                </div>
+                                                                            {% endfor %}
+                                                                            
+                                                                            <div class="mb-3">
+                                                                                <label for="feedback{{ submission._id }}" class="form-label">Comments</label>
+                                                                                <textarea class="form-control" id="feedback{{ submission._id }}" name="feedback" rows="3">{{ submission.feedback if submission.feedback else '' }}</textarea>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="modal-footer">
+                                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                            <button type="submit" class="btn btn-primary">Save Scores</button>
+                                                                        </div>
+                                                                    </form>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-body text-center py-5">
+                            <i class="fas fa-file-alt fa-4x text-muted mb-3"></i>
+                            <h5>No Submissions Yet</h5>
+                            <p class="text-muted">
+                                {% if round_number == 1 %}
+                                    No teams have submitted their presentations yet.
+                                {% elif round_number == 2 %}
+                                    No progress feedback has been recorded yet.
+                                {% elif round_number == 3 %}
+                                    No final evaluations have been submitted yet.
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

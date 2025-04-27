@@ -5,62 +5,91 @@
 
 {% block content %}
 <!-- Hero Section -->
-<section class="hero py-5 bg-primary text-white">
-    <div class="container">
+<section class="hero py-5 position-relative overflow-hidden">
+    <div class="hero-bg-gradient"></div>
+    <div class="hero-shapes"></div>
+    <div class="container position-relative py-5">
         <div class="row align-items-center">
             <div class="col-lg-6 mb-5 mb-lg-0">
-                <h1 class="display-4 fw-bold mb-4">Where Innovation Meets Collaboration</h1>
-                <p class="lead mb-4">Join the ultimate hackathon platform to showcase your skills, collaborate with talented developers, and build amazing projects.</p>
-                <div class="d-flex flex-wrap gap-2">
-                    <a href="{{ url_for('list_hackathons') }}" class="btn btn-light btn-lg">Find Hackathons</a>
+                <span class="badge bg-white text-primary px-3 py-2 mb-3 fw-bold shadow-sm">Hackathon Platform</span>
+                <h1 class="display-4 fw-bold mb-4 text-white">Where <span class="text-gradient">Innovation</span> Meets <span class="text-gradient">Collaboration</span></h1>
+                <p class="lead mb-4 text-white opacity-90">Join the ultimate hackathon platform to showcase your skills, collaborate with talented developers, and build amazing projects.</p>
+                <div class="d-flex flex-wrap gap-3 mt-5">
+                    <a href="{{ url_for('list_hackathons') }}" class="btn btn-light btn-lg shadow-hover">
+                        <i class="fas fa-search me-2"></i>Find Hackathons
+                    </a>
                     {% if not session.user_id %}
-                    <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-lg">Join Now</a>
+                    <a href="{{ url_for('register') }}" class="btn btn-glass btn-lg">
+                        <i class="fas fa-user-plus me-2"></i>Join Now
+                    </a>
                     {% endif %}
                 </div>
             </div>
-            <div class="col-lg-6">
-                <img src="/static/img/hero-illustration.svg" alt="Hackathon Illustration" class="img-fluid" onerror="this.src='/api/placeholder/600/400'; this.onerror=null;">
+            <div class="col-lg-6 position-relative">
+                <div class="hero-image-container">
+                    <img src="/static/img/hero-illustration.svg" alt="Hackathon Illustration" class="img-fluid hero-image" onerror="this.src='/api/placeholder/600/400'; this.onerror=null;">
+                    <div class="floating-card floating-card-1 shadow-lg">
+                        <i class="fas fa-code text-primary"></i>
+                        <span>Code</span>
+                    </div>
+                    <div class="floating-card floating-card-2 shadow-lg">
+                        <i class="fas fa-lightbulb text-warning"></i>
+                        <span>Innovate</span>
+                    </div>
+                    <div class="floating-card floating-card-3 shadow-lg">
+                        <i class="fas fa-users text-success"></i>
+                        <span>Collaborate</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </section>
 
 <!-- Stats Section -->
-<section class="py-5">
+<section class="stats-section py-5">
     <div class="container">
         <div class="row text-center">
             <div class="col-md-3 mb-4 mb-md-0">
-                <div class="card h-100 py-4">
+                <div class="card stat-card h-100 py-4 border-0">
                     <div class="card-body">
-                        <i class="fas fa-laptop-code fa-3x mb-3 text-primary"></i>
-                        <h2 class="fw-bold">{{ total_hackathons }}</h2>
+                        <div class="stat-icon-container mb-3">
+                            <i class="fas fa-laptop-code fa-2x text-primary"></i>
+                        </div>
+                        <h2 class="fw-bold counter-number">{{ total_hackathons }}</h2>
                         <p class="text-muted mb-0">Hackathons Hosted</p>
                     </div>
                 </div>
             </div>
             <div class="col-md-3 mb-4 mb-md-0">
-                <div class="card h-100 py-4">
+                <div class="card stat-card h-100 py-4 border-0">
                     <div class="card-body">
-                        <i class="fas fa-calendar-check fa-3x mb-3 text-success"></i>
-                        <h2 class="fw-bold">{{ ongoing_hackathons }}</h2>
+                        <div class="stat-icon-container bg-success-light mb-3">
+                            <i class="fas fa-calendar-check fa-2x text-success"></i>
+                        </div>
+                        <h2 class="fw-bold counter-number">{{ ongoing_hackathons }}</h2>
                         <p class="text-muted mb-0">Active Hackathons</p>
                     </div>
                 </div>
             </div>
             <div class="col-md-3 mb-4 mb-md-0">
-                <div class="card h-100 py-4">
+                <div class="card stat-card h-100 py-4 border-0">
                     <div class="card-body">
-                        <i class="fas fa-users fa-3x mb-3 text-primary"></i>
-                        <h2 class="fw-bold">{{ total_participants }}</h2>
+                        <div class="stat-icon-container bg-info-light mb-3">
+                            <i class="fas fa-users fa-2x text-info"></i>
+                        </div>
+                        <h2 class="fw-bold counter-number">{{ total_participants }}</h2>
                         <p class="text-muted mb-0">Active Participants</p>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card h-100 py-4">
+                <div class="card stat-card h-100 py-4 border-0">
                     <div class="card-body">
-                        <i class="fas fa-project-diagram fa-3x mb-3 text-primary"></i>
-                        <h2 class="fw-bold">{{ total_projects }}</h2>
+                        <div class="stat-icon-container bg-warning-light mb-3">
+                            <i class="fas fa-project-diagram fa-2x text-warning"></i>
+                        </div>
+                        <h2 class="fw-bold counter-number">{{ total_projects }}</h2>
                         <p class="text-muted mb-0">Projects Created</p>
                     </div>
                 </div>
@@ -70,12 +99,14 @@
 </section>
 
 <!-- Upcoming Hackathons -->
-<section class="py-5 bg-light">
+<section class="py-5 hackathons-section">
     <div class="container">
-        <div class="row mb-4">
+        <div class="row mb-5">
             <div class="col-12 text-center">
-                <h2 class="fw-bold">Upcoming Hackathons</h2>
-                <p class="text-muted">Register for these exciting opportunities and show off your skills</p>
+                <span class="section-subtitle">Ready to Code?</span>
+                <h2 class="section-title fw-bold">Upcoming Hackathons</h2>
+                <div class="section-divider"></div>
+                <p class="section-description">Register for these exciting opportunities and show off your skills</p>
             </div>
         </div>
         
@@ -83,30 +114,44 @@
             {% if upcoming_hackathons %}
                 {% for hackathon in upcoming_hackathons %}
                 <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="card h-100 position-relative">
-                        <div class="hackathon-status status-upcoming">Upcoming</div>
-                        <!--<img src="/api/placeholder/400/200" class="card-img-top" alt="{{ hackathon.title }}">-->
-                        <div class="card-body">
+                    <div class="card hackathon-card h-100 position-relative border-0">
+                        <div class="card-ribbon">
+                            <div class="hackathon-status status-upcoming">Upcoming</div>
+                        </div>
+                        <div class="card-top-bg"></div>
+                        <div class="card-body position-relative">
+                            <div class="hackathon-icon">
+                                <i class="fas fa-laptop-code"></i>
+                            </div>
                             <h5 class="card-title">{{ hackathon.title }}</h5>
-                            <p class="card-text">{{ hackathon.description|truncate(100) }}</p>
+                            <p class="card-text text-muted">{{ hackathon.description[:100] }}{% if hackathon.description|length > 100 %}...{% endif %}</p>
+                            
+
                             <div class="d-flex align-items-center mb-3">
-                                <i class="far fa-calendar-alt text-primary me-2"></i>
-                                <span>{{ hackathon.start_date.strftime('%b %d') }} - {{ hackathon.end_date.strftime('%b %d, %Y') }}</span>
+                                <div class="date-badge">
+                                    <div class="date-month">{{ hackathon.start_date.strftime('%b') }}</div>
+                                    <div class="date-day">{{ hackathon.start_date.strftime('%d') }}</div>
+                                </div>
+                                <div class="ms-3">
+                                    <div class="fw-bold">Starts</div>
+                                    <div class="text-muted small">{{ hackathon.start_date.strftime('%Y') }}</div>
+                                </div>
                             </div>
-                            <div class="d-flex align-items-center mb-3">
-                                <i class="fas fa-map-marker-alt text-primary me-2"></i>
-                                <span>{{ hackathon.location }}</span>
-                            </div>
+                            
+
                             {% if hackathon.themes %}
                             <div class="mb-3">
                                 {% for theme in hackathon.themes %}
-                                <span class="badge bg-secondary me-1">{{ theme }}</span>
+                                <span class="theme-badge me-1">{{ theme }}</span>
                                 {% endfor %}
                             </div>
                             {% endif %}
                         </div>
-                        <div class="card-footer bg-white border-0">
-                            <a href="{{ url_for('view_hackathon', hackathon_id=hackathon._id) }}" class="btn btn-primary w-100">View Details</a>
+                        <div class="card-footer bg-white border-0 pt-0">
+                            <a href="{{ url_for('view_hackathon', hackathon_id=hackathon._id) }}" class="btn btn-primary w-100 btn-hover-effect">
+                                <span>View Details</span>
+                                <i class="fas fa-arrow-right ms-2"></i>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -120,8 +165,11 @@
             {% endif %}
         </div>
         
-        <div class="text-center mt-4">
-            <a href="{{ url_for('list_hackathons') }}" class="btn btn-outline-primary">View All Hackathons</a>
+        <div class="text-center mt-5">
+            <a href="{{ url_for('list_hackathons') }}" class="btn btn-outline-primary btn-lg btn-hover-effect">
+                <span>View All Hackathons</span>
+                <i class="fas fa-arrow-right ms-2"></i>
+            </a>
         </div>
     </div>
 </section>
@@ -213,57 +261,80 @@
 </section>
 
 <!-- Testimonials Section -->
-<section class="py-5 bg-light">
+<section class="testimonials-section py-5">
     <div class="container">
-        <div class="row mb-4">
+        <div class="row mb-5">
             <div class="col-12 text-center">
-                <h2 class="fw-bold">What Participants Say</h2>
-                <p class="text-muted">Hear from developers who have used our platform</p>
+                <span class="section-subtitle">Testimonials</span>
+                <h2 class="section-title fw-bold">What Participants Say</h2>
+                <div class="section-divider"></div>
+                <p class="section-description">Hear from developers who have used our platform</p>
             </div>
         </div>
         
         <div class="row">
             <div class="col-lg-4 col-md-6 mb-4">
-                <div class="card h-100">
+                <div class="card testimonial-card h-100 border-0">
                     <div class="card-body">
-                        <div class="d-flex align-items-center mb-3">
-                            <!--<img src="/api/placeholder/60/60" class="rounded-circle me-3" alt="User">-->
-                            <div>
+                        <div class="testimonial-quote">
+                            <i class="fas fa-quote-left"></i>
+                        </div>
+                        <p class="testimonial-text mb-4">"HackHub made it easy to find teammates with complementary skills. We ended up winning first place in our first hackathon together!"</p>
+                        <div class="testimonial-author">
+                            <div class="testimonial-avatar">
+                                <div class="testimonial-avatar-placeholder">
+                                    <span>AJ</span>
+                                </div>
+                            </div>
+                            <div class="testimonial-info">
                                 <h5 class="mb-0">Alex Johnson</h5>
                                 <p class="text-muted mb-0">Full Stack Developer</p>
                             </div>
                         </div>
-                        <p class="card-text">"HackHub made it easy to find teammates with complementary skills. We ended up winning first place in our first hackathon together!"</p>
                     </div>
                 </div>
             </div>
             
             <div class="col-lg-4 col-md-6 mb-4">
-                <div class="card h-100">
+                <div class="card testimonial-card h-100 border-0">
                     <div class="card-body">
-                        <div class="d-flex align-items-center mb-3">
-                            <!--<img src="/api/placeholder/60/60" class="rounded-circle me-3" alt="User">-->
-                            <div>
+                        <div class="testimonial-quote">
+                            <i class="fas fa-quote-left"></i>
+                        </div>
+                        <p class="testimonial-text mb-4">"As a designer, I was worried about finding developer partners. HackHub connected me with talented coders who appreciated my design skills."</p>
+                        <div class="testimonial-author">
+                            <div class="testimonial-avatar">
+                                <div class="testimonial-avatar-placeholder">
+                                    <span>SM</span>
+                                </div>
+                            </div>
+                            <div class="testimonial-info">
                                 <h5 class="mb-0">Sarah Miller</h5>
                                 <p class="text-muted mb-0">UX Designer</p>
                             </div>
                         </div>
-                        <p class="card-text">"As a designer, I was worried about finding developer partners. HackHub connected me with talented coders who appreciated my design skills."</p>
                     </div>
                 </div>
             </div>
             
             <div class="col-lg-4 col-md-6 mb-4">
-                <div class="card h-100">
+                <div class="card testimonial-card h-100 border-0">
                     <div class="card-body">
-                        <div class="d-flex align-items-center mb-3">
-                            <!--<img src="/api/placeholder/60/60" class="rounded-circle me-3" alt="User">-->
-                            <div>
+                        <div class="testimonial-quote">
+                            <i class="fas fa-quote-left"></i>
+                        </div>
+                        <p class="testimonial-text mb-4">"The platform's project management tools helped our team stay organized during the hackathon. We could focus on building rather than coordination."</p>
+                        <div class="testimonial-author">
+                            <div class="testimonial-avatar">
+                                <div class="testimonial-avatar-placeholder">
+                                    <span>MC</span>
+                                </div>
+                            </div>
+                            <div class="testimonial-info">
                                 <h5 class="mb-0">Michael Chen</h5>
                                 <p class="text-muted mb-0">Data Scientist</p>
                             </div>
                         </div>
-                        <p class="card-text">"The platform's project management tools helped our team stay organized during the hackathon. We could focus on building rather than coordination."</p>
                     </div>
                 </div>
             </div>
@@ -272,19 +343,32 @@
 </section>
 
 <!-- CTA Section -->
-<section class="py-5 bg-primary text-white">
-    <div class="container">
+<section class="cta-section py-5 position-relative overflow-hidden">
+    <div class="cta-bg-gradient"></div>
+    <div class="cta-shapes"></div>
+    <div class="container position-relative py-5">
         <div class="row align-items-center">
-            <div class="col-lg-8 mb-4 mb-lg-0">
-                <h2 class="fw-bold">Ready to Start Your Hackathon Journey?</h2>
-                <p class="lead mb-0">Join thousands of developers, designers, and innovators on HackHub today.</p>
+            <div class="col-lg-7 mb-5 mb-lg-0">
+                <h2 class="fw-bold text-white mb-3">Ready to Start Your Hackathon Journey?</h2>
+                <p class="lead mb-0 text-white opacity-90">Join thousands of developers, designers, and innovators on HackHub today.</p>
             </div>
-            <div class="col-lg-4 text-lg-end">
-                {% if not session.user_id %}
-                <a href="{{ url_for('register') }}" class="btn btn-light btn-lg">Sign Up Now</a>
-                {% else %}
-                <a href="{{ url_for('dashboard') }}" class="btn btn-light btn-lg">Go to Dashboard</a>
-                {% endif %}
+            <div class="col-lg-5 text-lg-end">
+                <div class="cta-card p-4 bg-white rounded-lg shadow-lg">
+                    <div class="cta-card-icon mb-3">
+                        <i class="fas fa-rocket"></i>
+                    </div>
+                    <h4 class="mb-3">Get Started in Minutes</h4>
+                    <p class="text-muted mb-4">Create your profile, join a team, or organize your own hackathon today.</p>
+                    {% if not session.user_id %}
+                    <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg w-100 btn-hover-effect">
+                        <i class="fas fa-user-plus me-2"></i>Sign Up Now
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg w-100 btn-hover-effect">
+                        <i class="fas fa-tachometer-alt me-2"></i>Go to Dashboard
+                    </a>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>

@@ -44,6 +44,7 @@ judges = mongo.db.judges
 evaluations = mongo.db.evaluations
 notifications = mongo.db.notifications
 rounds = mongo.db.rounds
+round_submissions = mongo.db.round_submissions
 
 
 @app.context_processor
@@ -1064,6 +1065,391 @@ def hackathon_detail(hackathon_id):
         print(traceback.format_exc())
         flash('An error occurred while loading the hackathon details.', 'danger')
         return redirect(url_for('list_hackathons'))
+
+# Hackathon Rounds Management
+@app.route('/hackathons/<hackathon_id>/rounds', methods=['GET'])
+@login_required
+def view_rounds(hackathon_id):
+    try:
+        # Get hackathon details
+        hackathon = hackathons.find_one({'_id': ObjectId(hackathon_id)})
+        if not hackathon:
+            flash('Hackathon not found', 'danger')
+            return redirect(url_for('list_hackathons'))
+        
+        # Ensure hackathon has current_round field
+        if 'current_round' not in hackathon:
+            hackathons.update_one(
+                {'_id': ObjectId(hackathon_id)},
+                {'$set': {'current_round': 1}}
+            )
+            hackathon['current_round'] = 1
+        
+        # Get round configurations
+        round_config = rounds.find_one({'hackathon_id': ObjectId(hackathon_id)})
+        if not round_config:
+            round_config = {
+                'hackathon_id': ObjectId(hackathon_id),
+                'round1': None,
+                'round2': None,
+                'round3': None
+            }
+        
+        return render_template('view_rounds.html', 
+                              hackathon=hackathon, 
+                              rounds=round_config)
+    except Exception as e:
+        print(f"Error viewing rounds: {str(e)}")
+        flash('An error occurred while loading the rounds.', 'danger')
+        return redirect(url_for('hackathon_detail', hackathon_id=hackathon_id))
+
+@app.route('/hackathons/<hackathon_id>/rounds/update', methods=['POST'])
+@login_required
+def update_current_round(hackathon_id):
+    if session['user_role'] not in ['organizer', 'admin']:
+        flash('You must be an organizer or admin to update rounds', 'danger')
+        return redirect(url_for('view_rounds', hackathon_id=hackathon_id))
+    
+    try:
+        current_round = int(request.form.get('current_round', 1))
+        if current_round < 1 or current_round > 3:
+            current_round = 1
+        
+        hackathons.update_one(
+            {'_id': ObjectId(hackathon_id)},
+            {'$set': {'current_round': current_round}}
+        )
+        
+        flash(f'Current round updated to Round {current_round}', 'success')
+    except Exception as e:
+        print(f"Error updating current round: {str(e)}")
+        flash('An error occurred while updating the current round.', 'danger')
+    
+    return redirect(url_for('view_rounds', hackathon_id=hackathon_id))
+
+@app.route('/hackathons/<hackathon_id>/rounds/<int:round_number>/configure', methods=['POST'])
+@login_required
+def configure_round(hackathon_id, round_number):
+    if session['user_role'] not in ['organizer', 'admin']:
+        flash('You must be an organizer or admin to configure rounds', 'danger')
+        return redirect(url_for('view_rounds', hackathon_id=hackathon_id))
+    
+    try:
+        round_field = f'round{round_number}'
+        
+        # Get existing round configuration
+        round_config = rounds.find_one({'hackathon_id': ObjectId(hackathon_id)})
+        
+        # Prepare round data based on round number
+        if round_number == 1:
+            deadline = datetime.strptime(request.form.get('deadline'), '%Y-%m-%dT%H:%M')
+            instructions = request.form.get('instructions')
+            allowed_formats = request.form.get('allowed_formats', 'ppt,pptx,pdf')
+            
+            round_data = {
+                'deadline': deadline,
+                'instructions': instructions,
+                'allowed_formats': allowed_formats
+            }
+        elif round_number == 2:
+            schedule = datetime.strptime(request.form.get('schedule'), '%Y-%m-%dT%H:%M')
+            meeting_link = request.form.get('meeting_link')
+            instructions = request.form.get('instructions')
+            duration = int(request.form.get('duration', 15))
+            
+            round_data = {
+                'schedule': schedule,
+                'meeting_link': meeting_link,
+                'instructions': instructions,
+                'duration': duration
+            }
+        elif round_number == 3:
+            evaluation_date = datetime.strptime(request.form.get('evaluation_date'), '%Y-%m-%dT%H:%M')
+            instructions = request.form.get('instructions')
+            criteria = request.form.getlist('criteria[]')
+            
+            round_data = {
+                'evaluation_date': evaluation_date,
+                'instructions': instructions,
+                'criteria': criteria
+            }
+        
+        # Update or create round configuration
+        if round_config:
+            rounds.update_one(
+                {'hackathon_id': ObjectId(hackathon_id)},
+                {'$set': {round_field: round_data}}
+            )
+        else:
+            round_config = {
+                'hackathon_id': ObjectId(hackathon_id),
+                round_field: round_data
+            }
+            rounds.insert_one(round_config)
+        
+        flash(f'Round {round_number} configuration updated successfully', 'success')
+    except Exception as e:
+        print(f"Error configuring round: {str(e)}")
+        flash('An error occurred while configuring the round.', 'danger')
+    
+    return redirect(url_for('view_rounds', hackathon_id=hackathon_id))
+
+@app.route('/hackathons/<hackathon_id>/rounds/<int:round_number>/submissions', methods=['GET'])
+@login_required
+def view_round_submissions(hackathon_id, round_number):
+    if session['user_role'] not in ['organizer', 'admin']:
+        flash('You must be an organizer or admin to view submissions', 'danger')
+        return redirect(url_for('view_rounds', hackathon_id=hackathon_id))
+    
+    try:
+        # Get hackathon details
+        hackathon = hackathons.find_one({'_id': ObjectId(hackathon_id)})
+        if not hackathon:
+            flash('Hackathon not found', 'danger')
+            return redirect(url_for('list_hackathons'))
+        
+        # Get round configuration
+        round_config = rounds.find_one({'hackathon_id': ObjectId(hackathon_id)})
+        if not round_config or f'round{round_number}' not in round_config:
+            flash(f'Round {round_number} has not been configured yet', 'warning')
+            return redirect(url_for('view_rounds', hackathon_id=hackathon_id))
+        
+        round_info = round_config[f'round{round_number}']
+        
+        # Get submissions for this round
+        submissions_list = list(round_submissions.find({
+            'hackathon_id': ObjectId(hackathon_id),
+            'round_number': round_number
+        }))
+        
+        # Get team information for each submission
+        for submission in submissions_list:
+            team = teams.find_one({'_id': ObjectId(submission['team_id'])})
+            if team:
+                submission['team_name'] = team.get('name', 'Unknown Team')
+                
+                # Get team members
+                member_ids = [ObjectId(member_id) for member_id in team.get('members', [])]
+                team_members = list(users.find({'_id': {'$in': member_ids}}, {'name': 1, 'email': 1}))
+                submission['team_members'] = team_members
+        
+        return render_template('view_round_submissions.html',
+                              hackathon=hackathon,
+                              round_number=round_number,
+                              round_info=round_info,
+                              submissions=submissions_list)
+    except Exception as e:
+        print(f"Error viewing round submissions: {str(e)}")
+        flash('An error occurred while loading the submissions.', 'danger')
+        return redirect(url_for('view_rounds', hackathon_id=hackathon_id))
+
+@app.route('/hackathons/<hackathon_id>/submit-presentation', methods=['GET', 'POST'])
+@login_required
+def submit_presentation(hackathon_id):
+    try:
+        # Get hackathon details
+        hackathon = hackathons.find_one({'_id': ObjectId(hackathon_id)})
+        if not hackathon:
+            flash('Hackathon not found', 'danger')
+            return redirect(url_for('list_hackathons'))
+        
+        # Check if user is part of a team in this hackathon
+        user_team = teams.find_one({
+            'hackathon_id': ObjectId(hackathon_id),
+            'members': ObjectId(session['user_id'])
+        })
+        
+        if not user_team:
+            flash('You must be part of a team to submit a presentation', 'warning')
+            return redirect(url_for('hackathon_detail', hackathon_id=hackathon_id))
+        
+        # Get round 1 configuration
+        round_config = rounds.find_one({'hackathon_id': ObjectId(hackathon_id)})
+        if not round_config or 'round1' not in round_config:
+            flash('Round 1 has not been configured yet', 'warning')
+            return redirect(url_for('view_rounds', hackathon_id=hackathon_id))
+        
+        round_info = round_config['round1']
+        current_time = datetime.now()
+        
+        # Check if the team has already submitted for round 1
+        existing_submission = round_submissions.find_one({
+            'hackathon_id': ObjectId(hackathon_id),
+            'team_id': user_team['_id'],
+            'round_number': 1
+        })
+        
+        if request.method == 'POST':
+            # Check if submission deadline has passed
+            if current_time > round_info['deadline']:
+                flash('The submission deadline has passed', 'danger')
+                return redirect(url_for('submit_presentation', hackathon_id=hackathon_id))
+            
+            # Process file upload
+            if 'presentation_file' not in request.files:
+                flash('No file part', 'danger')
+                return redirect(request.url)
+            
+            file = request.files['presentation_file']
+            if file.filename == '':
+                flash('No selected file', 'danger')
+                return redirect(request.url)
+            
+            # Check file extension
+            allowed_formats = round_info['allowed_formats'].split(',')
+            file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+            if file_ext not in allowed_formats:
+                flash(f'Invalid file format. Allowed formats: {round_info["allowed_formats"]}', 'danger')
+                return redirect(request.url)
+            
+            # Save file
+            filename = secure_filename(f"{user_team['name']}_{datetime.now().strftime('%Y%m%d%H%M%S')}.{file_ext}")
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], 'presentations', filename)
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            file.save(file_path)
+            
+            # Get notes
+            notes = request.form.get('notes', '')
+            
+            # Create or update submission
+            submission_data = {
+                'hackathon_id': ObjectId(hackathon_id),
+                'team_id': user_team['_id'],
+                'round_number': 1,
+                'file_path': file_path,
+                'file_name': filename,
+                'notes': notes,
+                'submitted_at': current_time,
+                'submitted_by': ObjectId(session['user_id'])
+            }
+            
+            if existing_submission:
+                # Update existing submission
+                submission_id = existing_submission['_id']
+                round_submissions.update_one(
+                    {'_id': submission_id},
+                    {'$set': submission_data}
+                )
+                flash('Your presentation has been updated successfully', 'success')
+            else:
+                # Create new submission
+                round_submissions.insert_one(submission_data)
+                flash('Your presentation has been submitted successfully', 'success')
+            
+            return redirect(url_for('view_rounds', hackathon_id=hackathon_id))
+        
+        return render_template('submit_presentation.html',
+                              hackathon=hackathon,
+                              round_info=round_info,
+                              current_time=current_time,
+                              existing_submission=existing_submission)
+    except Exception as e:
+        print(f"Error submitting presentation: {str(e)}")
+        flash('An error occurred while processing your submission.', 'danger')
+        return redirect(url_for('view_rounds', hackathon_id=hackathon_id))
+
+@app.route('/submissions/<submission_id>/download')
+@login_required
+def download_submission(submission_id):
+    try:
+        submission = round_submissions.find_one({'_id': ObjectId(submission_id)})
+        if not submission:
+            flash('Submission not found', 'danger')
+            return redirect(url_for('dashboard'))
+        
+        # Check if user is authorized to download
+        hackathon = hackathons.find_one({'_id': submission['hackathon_id']})
+        if not hackathon:
+            flash('Hackathon not found', 'danger')
+            return redirect(url_for('dashboard'))
+        
+        # Allow download if user is organizer, admin, or part of the team
+        is_authorized = False
+        if session['user_role'] in ['organizer', 'admin']:
+            is_authorized = True
+        else:
+            user_team = teams.find_one({
+                'hackathon_id': submission['hackathon_id'],
+                'members': ObjectId(session['user_id'])
+            })
+            is_authorized = user_team and str(user_team['_id']) == str(submission['team_id'])
+        
+        if not is_authorized:
+            flash('You are not authorized to download this file', 'danger')
+            return redirect(url_for('dashboard'))
+        
+        # Return file for download
+        return send_file(submission['file_path'], as_attachment=True, download_name=submission['file_name'])
+    except Exception as e:
+        print(f"Error downloading submission: {str(e)}")
+        flash('An error occurred while downloading the file.', 'danger')
+        return redirect(url_for('dashboard'))
+
+@app.route('/hackathons/<hackathon_id>/submissions/<submission_id>/feedback/<int:round_number>', methods=['POST'])
+@login_required
+def provide_feedback(hackathon_id, submission_id, round_number):
+    if session['user_role'] not in ['organizer', 'admin']:
+        flash('You must be an organizer or admin to provide feedback', 'danger')
+        return redirect(url_for('view_rounds', hackathon_id=hackathon_id))
+    
+    try:
+        feedback = request.form.get('feedback', '')
+        approved = 'approved' in request.form
+        
+        round_submissions.update_one(
+            {'_id': ObjectId(submission_id)},
+            {'$set': {
+                'feedback': feedback,
+                'approved': approved,
+                'feedback_by': ObjectId(session['user_id']),
+                'feedback_at': datetime.now()
+            }}
+        )
+        
+        flash('Feedback saved successfully', 'success')
+    except Exception as e:
+        print(f"Error providing feedback: {str(e)}")
+        flash('An error occurred while saving feedback.', 'danger')
+    
+    return redirect(url_for('view_round_submissions', hackathon_id=hackathon_id, round_number=round_number))
+
+@app.route('/hackathons/<hackathon_id>/submissions/<submission_id>/score', methods=['POST'])
+@login_required
+def score_submission(hackathon_id, submission_id):
+    if session['user_role'] not in ['organizer', 'admin', 'judge']:
+        flash('You must be an organizer, admin, or judge to score submissions', 'danger')
+        return redirect(url_for('view_rounds', hackathon_id=hackathon_id))
+    
+    try:
+        # Get scores from form
+        scores = {}
+        for key, value in request.form.items():
+            if key.startswith('scores[') and key.endswith(']'):
+                criterion = key[7:-1]  # Extract criterion name from scores[criterion]
+                scores[criterion] = int(value)
+        
+        feedback = request.form.get('feedback', '')
+        
+        # Calculate average score
+        avg_score = sum(scores.values()) / len(scores) if scores else 0
+        
+        round_submissions.update_one(
+            {'_id': ObjectId(submission_id)},
+            {'$set': {
+                'scores': scores,
+                'score': avg_score,
+                'feedback': feedback,
+                'scored_by': ObjectId(session['user_id']),
+                'scored_at': datetime.now()
+            }}
+        )
+        
+        flash('Scores saved successfully', 'success')
+    except Exception as e:
+        print(f"Error scoring submission: {str(e)}")
+        flash('An error occurred while saving scores.', 'danger')
+    
+    return redirect(url_for('view_round_submissions', hackathon_id=hackathon_id, round_number=3))
 
 @app.route('/hackathons/<hackathon_id>/edit', methods=['GET', 'POST'])
 def edit_hackathon(hackathon_id):
