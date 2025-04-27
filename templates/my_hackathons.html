@@ -27,14 +27,11 @@
         <div class="row mb-4">
             <div class="col-12 d-flex justify-content-between">
                 <div>
-                    <a href="{{ url_for('fix_hackathons') }}" class="btn btn-secondary me-2">
-                        <i class="fas fa-tools me-2"></i>Fix Hackathons
-                    </a>
-                    <a href="{{ url_for('cleanup_hackathons') }}?claim=true" class="btn btn-outline-secondary">
-                        <i class="fas fa-broom me-2"></i>Advanced Cleanup
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary me-2">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
                     </a>
                 </div>
-                <a href="{{ url_for('create_hackathon') }}" class="btn btn-primary">
+                <a href="{{ url_for('create_new_hackathon') }}" class="btn btn-primary">
                     <i class="fas fa-plus-circle me-2"></i>Create New Hackathon
                 </a>
             </div>
@@ -95,16 +92,13 @@
                                                         More
                                                     </button>
                                                     <ul class="dropdown-menu">
-                                                        {% if 'view_participants' in available_routes %}
-                                                        <li><a class="dropdown-item" href="{{ url_for('view_participants', hackathon_id=hackathon._id|string) }}">View Participants</a></li>
-                                                        {% endif %}
-                                                        {% if 'manage_levels' in available_routes %}
-                                                        <li><a class="dropdown-item" href="{{ url_for('manage_levels', hackathon_id=hackathon._id|string) }}">Manage Levels</a></li>
-                                                        {% endif %}
+                                                        <li><a class="dropdown-item" href="{{ url_for('view_rounds', hackathon_id=hackathon._id|string) }}">
+                                                            <i class="fas fa-layer-group me-2"></i>Manage Rounds
+                                                        </a></li>
                                                         <li><hr class="dropdown-divider"></li>
-                                                        {% if 'delete_hackathon' in available_routes %}
+                                                        <li><a class="dropdown-item" href="{{ url_for('hackathon_detail', hackathon_id=hackathon._id|string) }}">View Details</a></li>
+                                                        <li><hr class="dropdown-divider"></li>
                                                         <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#deleteModal{{ hackathon._id|string }}">Delete</a></li>
-                                                        {% endif %}
                                                     </ul>
                                                 </div>
                                                 
@@ -176,7 +170,7 @@
                                             <td>{{ hackathon.team_count|default(0) }}</td>
                                             <td>
                                                 <div class="btn-group">
-                                                    <a href="{{ url_for('view_hackathon', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                                                    <a href="{{ url_for('hackathon_detail', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-primary">View</a>
                                                     <a href="{{ url_for('edit_hackathon', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
                                                     <button type="button" class="btn btn-sm btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                                                         More
@@ -257,8 +251,8 @@
                                             <td>{{ hackathon.team_count|default(0) }}</td>
                                             <td>
                                                 <div class="btn-group">
-                                                    <a href="{{ url_for('view_hackathon', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-primary">View</a>
-                                                    <a href="{{ url_for('view_results', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-success">Results</a>
+                                                    <a href="{{ url_for('hackathon_detail', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                                                    <a href="{{ url_for('view_rounds', hackathon_id=hackathon._id) }}" class="btn btn-sm btn-outline-success">View Rounds</a>
                                                 </div>
                                             </td>
                                         </tr>
@@ -283,10 +277,10 @@
                         <h3>You haven't created any hackathons yet</h3>
                         <p class="lead text-muted mb-4">Get started by creating your first hackathon event or check if you have any unclaimed hackathons.</p>
                         <div class="d-flex justify-content-center gap-3">
-                            <a href="{{ url_for('fix_hackathons') }}" class="btn btn-outline-secondary">
-                                <i class="fas fa-tools me-2"></i>Fix / Claim Hackathons
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-tachometer-alt me-2"></i>Back to Dashboard
                             </a>
-                            <a href="{{ url_for('create_hackathon') }}" class="btn btn-primary">
+                            <a href="{{ url_for('create_new_hackathon') }}" class="btn btn-primary">
                                 <i class="fas fa-plus-circle me-2"></i>Create Hackathon
                             </a>
                         </div>

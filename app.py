@@ -1451,6 +1451,180 @@ def score_submission(hackathon_id, submission_id):
     
     return redirect(url_for('view_round_submissions', hackathon_id=hackathon_id, round_number=3))
 
+@app.route('/create-hackathon', methods=['GET', 'POST'])
+@login_required
+def create_new_hackathon():
+    if session['user_role'] not in ['organizer', 'admin']:
+        flash('You must be an organizer to create hackathons', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        try:
+            # Get form data
+            title = request.form.get('title')
+            description = request.form.get('description')
+            start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d')
+            end_date = datetime.strptime(request.form.get('end_date'), '%Y-%m-%d')
+            location = request.form.get('location')
+            max_team_size = int(request.form.get('max_team_size'))
+            themes = [theme.strip() for theme in request.form.get('themes', '').split(',') if theme.strip()]
+            hackathon_type = request.form.get('hackathon_type', 'open')
+            
+            # Create hackathon document
+            new_hackathon = {
+                'title': title,
+                'description': description,
+                'start_date': start_date,
+                'end_date': end_date,
+                'location': location,
+                'max_team_size': max_team_size,
+                'themes': themes,
+                'hackathon_type': hackathon_type,
+                'organizer_id': ObjectId(session['user_id']),
+                'created_at': datetime.now(),
+                'status': 'upcoming',
+                'current_round': 1  # Initialize with Round 1
+            }
+            
+            # Handle problem statements for detailed hackathon type
+            if hackathon_type == 'detailed':
+                problem_titles = request.form.getlist('problem_titles[]')
+                problem_descriptions = request.form.getlist('problem_descriptions[]')
+                problem_requirements = request.form.getlist('problem_requirements[]')
+                problem_constraints = request.form.getlist('problem_constraints[]')
+                
+                problems = []
+                for i in range(len(problem_titles)):
+                    if problem_titles[i].strip():
+                        problem = {
+                            'title': problem_titles[i],
+                            'description': problem_descriptions[i] if i < len(problem_descriptions) else '',
+                            'requirements': [req.strip() for req in problem_requirements[i].split(',')] if i < len(problem_requirements) and problem_requirements[i] else [],
+                            'constraints': [con.strip() for con in problem_constraints[i].split(',')] if i < len(problem_constraints) and problem_constraints[i] else []
+                        }
+                        problems.append(problem)
+                
+                new_hackathon['problems'] = problems
+            
+            # Insert hackathon into database
+            result = hackathons.insert_one(new_hackathon)
+            hackathon_id = result.inserted_id
+            
+            # Initialize rounds configuration
+            rounds_config = {
+                'hackathon_id': hackathon_id,
+                'round1': {
+                    'deadline': start_date + timedelta(days=7),  # Default deadline 7 days after start
+                    'instructions': 'Please submit your initial presentation (PPT/PDF) outlining your project idea, approach, and implementation plan.',
+                    'allowed_formats': 'ppt,pptx,pdf'
+                },
+                'round2': {
+                    'schedule': start_date + timedelta(days=14),  # Default schedule 14 days after start
+                    'meeting_link': '',
+                    'instructions': 'Be prepared to share your screen and demonstrate your project progress. Each team will have 10 minutes for presentation and 5 minutes for Q&A.',
+                    'duration': 15
+                },
+                'round3': {
+                    'evaluation_date': end_date - timedelta(days=1),  # Default 1 day before end
+                    'instructions': 'Evaluate each project based on innovation, technical complexity, completeness, and presentation quality. Rate each criterion on a scale of 1-10.',
+                    'criteria': ['Innovation', 'Technical Complexity', 'Completeness', 'Presentation Quality']
+                }
+            }
+            
+            # Insert rounds configuration
+            rounds.insert_one(rounds_config)
+            
+            flash('Hackathon created successfully!', 'success')
+            return redirect(url_for('view_rounds', hackathon_id=hackathon_id))
+            
+        except Exception as e:
+            print(f"Error creating hackathon: {str(e)}")
+            flash('An error occurred while creating the hackathon.', 'danger')
+            return redirect(url_for('create_new_hackathon'))
+    
+    return render_template('create_hackathon.html')
+
+@app.route('/my-hackathons')
+@login_required
+def my_hackathons():
+    # Redirect to the new, more reliable organizer_hackathons route
+    if session['user_role'] not in ['organizer', 'admin']:
+        flash('You must be an organizer to view this page', 'danger')
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('organizer_hackathons_new'))
+
+@app.route('/organizer-hackathons-new')
+@login_required
+def organizer_hackathons_new():
+    if session['user_role'] not in ['organizer', 'admin']:
+        flash('You must be an organizer to view this page', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        # Get hackathons organized by the current user
+        user_hackathons = list(hackathons.find({'organizer_id': ObjectId(session['user_id'])}))
+        
+        # Categorize hackathons
+        ongoing_hackathons = []
+        upcoming_hackathons = []
+        past_hackathons = []
+        
+        current_time = datetime.now()
+        
+        for hackathon in user_hackathons:
+            # Ensure dates are datetime objects
+            if isinstance(hackathon.get('start_date'), str):
+                try:
+                    hackathon['start_date'] = datetime.strptime(hackathon['start_date'], '%Y-%m-%dT%H:%M:%S')
+                except Exception as e:
+                    print(f"Error parsing start_date: {str(e)}")
+                    hackathon['start_date'] = current_time
+            
+            if isinstance(hackathon.get('end_date'), str):
+                try:
+                    hackathon['end_date'] = datetime.strptime(hackathon['end_date'], '%Y-%m-%dT%H:%M:%S')
+                except Exception as e:
+                    print(f"Error parsing end_date: {str(e)}")
+                    hackathon['end_date'] = current_time + timedelta(days=30)
+            
+            # Categorize based on dates
+            try:
+                if current_time < hackathon['start_date']:
+                    hackathon['status'] = 'upcoming'
+                    upcoming_hackathons.append(hackathon)
+                elif current_time > hackathon['end_date']:
+                    hackathon['status'] = 'completed'
+                    past_hackathons.append(hackathon)
+                else:
+                    hackathon['status'] = 'ongoing'
+                    ongoing_hackathons.append(hackathon)
+            except Exception as e:
+                print(f"Error categorizing hackathon {hackathon.get('title', 'Unknown')}: {str(e)}")
+                # Default to ongoing if there's an error
+                hackathon['status'] = 'ongoing'
+                ongoing_hackathons.append(hackathon)
+        
+        # Sort hackathons by date (with error handling)
+        try:
+            upcoming_hackathons.sort(key=lambda x: x.get('start_date', current_time))
+            ongoing_hackathons.sort(key=lambda x: x.get('end_date', current_time))
+            past_hackathons.sort(key=lambda x: x.get('end_date', current_time), reverse=True)
+        except Exception as e:
+            print(f"Error sorting hackathons: {str(e)}")
+        
+        return render_template('organizer_hackathons.html', 
+                              hackathons=user_hackathons,
+                              upcoming_hackathons=upcoming_hackathons,
+                              ongoing_hackathons=ongoing_hackathons,
+                              past_hackathons=past_hackathons)
+    except Exception as e:
+        import traceback
+        print(f"Error loading organizer hackathons: {str(e)}")
+        print(traceback.format_exc())
+        flash('We encountered an issue loading your hackathons. Please try again later.', 'warning')
+        return redirect(url_for('dashboard'))
+
+
 @app.route('/hackathons/<hackathon_id>/edit', methods=['GET', 'POST'])
 def edit_hackathon(hackathon_id):
     if 'user_id' not in session or session['user_role'] not in ['admin', 'organizer']:
@@ -2229,7 +2403,7 @@ def safe_object_id(id_value):
 # My Hackathons Route
 @app.route('/my_hackathons')
 @login_required
-def my_hackathons():
+def organizer_hackathons():
     if session['user_role'] != 'organizer':
         flash('Only organizers can access this page.', 'warning')
         return redirect(url_for('dashboard'))

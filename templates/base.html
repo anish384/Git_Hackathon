@@ -1293,23 +1293,10 @@
                                 </span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end user-dropdown-menu" aria-labelledby="userDropdown">
-                                <li>
-                                    <a class="dropdown-item user-dropdown-item" href="{{ url_for('dashboard') }}">
-                                        <i class="fas fa-user-circle"></i> Dashboard
-                                    </a>
-                                </li>
-                                {% if session.user_role == 'participant' %}
-                                {% elif session.user_role == 'organizer' %}
-                                <li>
-                                    <a class="dropdown-item user-dropdown-item" href="{{ url_for('my_hackathons') }}">
-                                        <i class="fas fa-laptop-code"></i> My Hackathons
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item user-dropdown-item" href="{{ url_for('create_hackathon') }}">
-                                        <i class="fas fa-plus-circle"></i> Create Hackathon
-                                    </a>
-                                </li>
+                                <li><a class="dropdown-item" href="{{ url_for('dashboard') }}"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
+                                {% if user and user.role in ['organizer', 'admin'] %}
+                                <li><a class="dropdown-item" href="{{ url_for('organizer_hackathons_new') }}"><i class="fas fa-calendar-alt me-2"></i>My Hackathons</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('create_new_hackathon') }}"><i class="fas fa-plus-circle me-2"></i>Create Hackathon</a></li>
                                 {% endif %}
                                 <li>
                                     <a class="dropdown-item user-dropdown-item" href="{{ url_for('logout') }}">
