@@ -47,7 +47,7 @@
                         <div class="tab-content" id="registerTabsContent">
                             <!-- Participant Registration Form -->
                             <div class="tab-pane fade show active" id="participant" role="tabpanel" aria-labelledby="participant-tab">
-                                <form method="POST" action="{{ url_for('register') }}">
+                                <form method="POST" action="{{ url_for('register') }}" enctype="multipart/form-data">
                                     <input type="hidden" name="user_type" value="participant">
                                     <div class="mb-4">
                                         <label for="participant_name" class="form-label">Full Name</label>
@@ -63,12 +63,33 @@
                                     </div>
                                     <div class="mb-4">
                                         <label for="participant_skills" class="form-label">Skills (comma-separated)</label>
-                                        <input type="text" class="form-control" id="participant_skills" name="skills" required 
-                                            placeholder="e.g., Python, JavaScript, Machine Learning">
+                                        <input type="text" class="form-control" id="participant_skills" name="skills" placeholder="e.g., Python, Web Development, ML">
                                         <div class="form-text text-muted">
-                                            List your technical skills, separated by commas
+                                            List your skills separated by commas
                                         </div>
                                     </div>
+                                    <div class="mb-4">
+                                        <label for="participant_github" class="form-label">GitHub Profile (optional)</label>
+                                        <input type="url" class="form-control" id="participant_github" name="github" placeholder="https://github.com/yourusername">
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="participant_linkedin" class="form-label">LinkedIn Profile (optional)</label>
+                                        <input type="url" class="form-control" id="participant_linkedin" name="linkedin" placeholder="https://linkedin.com/in/yourusername">
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="participant_profile_pic" class="form-label">Profile Picture (optional)</label>
+                                        <input type="file" class="form-control" id="participant_profile_pic" name="profile_pic" accept="image/*">
+                                        <div class="form-text text-muted">
+                                            Maximum file size: 2MB. Allowed formats: JPG, PNG, GIF
+                                        </div>
+                                    </div>
+                                    <!-- <div class="mb-4">
+                                        <label for="participant_profile_pic" class="form-label">Profile Picture (optional)</label>
+                                        <input type="file" class="form-control" id="participant_profile_pic" name="profile_pic" accept="image/*">
+                                        <div class="form-text text-muted">
+                                            Maximum file size: 2MB. Allowed formats: JPG, PNG, GIF
+                                        </div>
+                                    </div> -->
                                     <div class="d-grid gap-2">
                                         <button type="submit" class="btn btn-primary btn-lg">Register as Participant</button>
                                     </div>
@@ -80,7 +101,7 @@
                             
                             <!-- Organizer Registration Form -->
                             <div class="tab-pane fade" id="organizer" role="tabpanel" aria-labelledby="organizer-tab">
-                                <form method="POST" action="{{ url_for('register') }}">
+                                <form method="POST" action="{{ url_for('register') }}" enctype="multipart/form-data">
                                     <input type="hidden" name="user_type" value="organizer">
                                     <div class="mb-4">
                                         <label for="organizer_name" class="form-label">Full Name</label>
@@ -103,6 +124,13 @@
                                         <label for="organizer_bio" class="form-label">Organization Bio</label>
                                         <textarea class="form-control" id="organizer_bio" name="bio" rows="3" required 
                                             placeholder="Brief description of your organization"></textarea>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="organizer_profile_pic" class="form-label">Profile Picture (optional)</label>
+                                        <input type="file" class="form-control" id="organizer_profile_pic" name="profile_pic" accept="image/*">
+                                        <div class="form-text text-muted">
+                                            Maximum file size: 2MB. Allowed formats: JPG, PNG, GIF
+                                        </div>
                                     </div>
                                     <div class="d-grid gap-2">
                                         <button type="submit" class="btn btn-success btn-lg">Register as Organizer</button>

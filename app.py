@@ -1,11 +1,15 @@
 # app.py - Main Flask Application
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+import traceback
+from bson.binary import Binary
+from io import BytesIO
+import imghdr
+from flask import Flask, Response, render_template, request, redirect, send_file, url_for, flash, session
 from flask_pymongo import PyMongo
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from bson.objectid import ObjectId
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 import os
 from functools import wraps
 
@@ -15,6 +19,16 @@ app.secret_key = 'your-secret-key'  # Change this to a secure secret key
 # Configure upload folder
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# Configure upload folder
+UPLOAD_FOLDER = 'static/uploads/profile_pics'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+# Make sure the upload folder exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB limit
 
 # MongoDB configuration
 app.config['MONGO_URI'] = 'mongodb://localhost:27017/hackathon_db'
@@ -30,6 +44,15 @@ judges = mongo.db.judges
 evaluations = mongo.db.evaluations
 notifications = mongo.db.notifications
 rounds = mongo.db.rounds
+
+
+@app.context_processor
+def inject_user():
+    user = None
+    if 'user_id' in session:
+        # Always fetch the latest user info from the database
+        user = users.find_one({'_id': ObjectId(session['user_id'])})
+    return dict(user=user)
 
 # Login required decorator
 def login_required(f):
@@ -113,77 +136,446 @@ def login():
     
     return render_template('login.html')
 
+
+@app.route('/profile_pic/<filename>')
+def profile_pic(filename):
+    try:
+        user = users.find_one({'profile_pic.filename': filename})
+        if user and user.get('profile_pic'):
+            pic_data = user['profile_pic']['data']
+            content_type = user['profile_pic']['content_type']
+            return Response(pic_data, mimetype=content_type)
+        else:
+            return '', 404
+    except Exception as e:
+        print("Profile pic load error:", e)
+        return '', 500
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     user_type = request.args.get('user_type', 'participant')
     
     if request.method == 'POST':
         try:
-            # Get and validate form data
+            # Validate basic form data
             name = request.form.get('name', '').strip()
             email = request.form.get('email', '').strip().lower()
             password = request.form.get('password', '')
             user_type = request.form.get('user_type', 'participant')
             
-            # Validate required fields
-            if not all([name, email, password]):
+            if not name or not email or not password:
                 flash('All fields are required.', 'danger')
                 return redirect(url_for('register'))
             
-            # Check if email already exists
+            # Check if user already exists
             existing_user = users.find_one({'email': email})
             if existing_user:
-                flash('Email already registered. Please login or use a different email.', 'warning')
+                flash('Email already registered.', 'warning')
                 return redirect(url_for('register'))
             
-            # Create new user document based on user type
+            # Modify your file upload handling section like this:
+            profile_pic_path = None
+            if 'profile_pic' in request.files:
+                file = request.files['profile_pic']
+                if file.filename != '':
+                    try:
+                        if not file or not allowed_file(file.filename, {'png', 'jpg', 'jpeg', 'gif'}):
+                            flash('Invalid file type. Allowed: png, jpg, jpeg, gif', 'warning')
+                        else:
+                            # Check file size
+                            file.seek(0, os.SEEK_END)
+                            file_length = file.tell()
+                            file.seek(0)  # Reset file pointer
+                            
+                            if file_length > 2 * 1024 * 1024:  # 2MB limit
+                                flash('File too large (max 2MB)', 'warning')
+                            elif file_length == 0:
+                                flash('Empty file uploaded', 'warning')
+                            else:
+                                # Generate a unique filename
+                                filename = secure_filename(f"{email}_{file.filename}")
+                                save_path = os.path.join(UPLOAD_FOLDER, filename)
+                                
+                                # Ensure directory exists
+                                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                                
+                                file.save(save_path)
+                                profile_pic_path = f"uploads/profile_pics/{filename}"
+                                print(f"DEBUG: File saved to {save_path}")  # Debug output
+                    except Exception as file_error:
+                        print(f"DEBUG: File processing error details: {str(file_error)}")  # More detailed error
+                        flash(f'Error processing profile picture: {str(file_error)}', 'danger')
+
+            # Handle file upload
+            # profile_pic_path = None
+            # if 'profile_pic' in request.files:
+            #     file = request.files['profile_pic']
+            #     if file.filename != '':
+            #         if not allowed_file(file.filename, {'png', 'jpg', 'jpeg', 'gif'}):
+            #             flash('Invalid file type. Allowed: png, jpg, jpeg, gif', 'warning')
+            #         else:
+            #             try:
+            #                 # Check file size
+            #                 file.seek(0, os.SEEK_END)
+            #                 file_length = file.tell()
+            #                 file.seek(0)
+                            
+            #                 if file_length > MAX_FILE_SIZE:
+            #                     flash('File too large (max 2MB)', 'warning')
+            #                 else:
+            #                     # Generate a unique filename
+            #                     filename = secure_filename(f"{email}_{file.filename}")
+            #                     save_path = os.path.join(UPLOAD_FOLDER, filename)
+            #                     file.save(save_path)
+            #                     profile_pic_path = f"uploads/profile_pics/{filename}"
+            #             except Exception as file_error:
+            #                 print("File processing error:", file_error)
+            #                 flash('Error processing profile picture', 'danger')
+            
+            # Create user document
             new_user = {
                 'name': name,
                 'email': email,
                 'password': generate_password_hash(password),
                 'role': user_type,
-                'created_at': datetime.now()
+                'created_at': datetime.now(),
+                'profile_pic_path': profile_pic_path  # Store path instead of binary data
             }
             
-            # Add user type specific fields
-            if user_type == 'participant':
-                skills_input = request.form.get('skills', '').strip()
-                skills = [skill.strip() for skill in skills_input.split(',') if skill.strip()]
-                new_user['skills'] = skills
-            elif user_type == 'organizer':
-                organization = request.form.get('organization', '').strip()
-                bio = request.form.get('bio', '').strip()
-                new_user['organization'] = organization
-                new_user['bio'] = bio
-                new_user['verified'] = False  # Organizers need verification
-            
-            # Insert the new user
-            result = users.insert_one(new_user)
-            user_id = result.inserted_id
-            
-            # Create welcome notification
+            # Add role-specific fields
             try:
+                if user_type == 'participant':
+                    skills = [s.strip() for s in request.form.get('skills', '').split(',') if s.strip()]
+                    new_user['skills'] = skills
+                    # Optional fields
+                    github = request.form.get('github', '').strip()
+                    linkedin = request.form.get('linkedin', '').strip()
+                    if github:
+                        new_user['github'] = github
+                    if linkedin:
+                        new_user['linkedin'] = linkedin
+                elif user_type == 'organizer':
+                    new_user.update({
+                        'organization': request.form.get('organization', '').strip(),
+                        'bio': request.form.get('bio', '').strip(),
+                        'verified': False
+                    })
+            except Exception as field_error:
+                print("Field processing error:", field_error)
+                flash('Error processing additional fields', 'danger')
+                return redirect(url_for('register'))
+            
+            # Insert user
+            try:
+                result = users.insert_one(new_user)
+                user_id = result.inserted_id
+                
+                # Add notification
                 notifications.insert_one({
                     'user_id': user_id,
-                    'title': 'Welcome to HackHub!',
-                    'message': f'Welcome {name}! Thanks for joining our platform.',
+                    'title': 'Welcome!',
+                    'message': f'Welcome {name}!',
                     'type': 'welcome',
                     'read': False,
                     'created_at': datetime.now()
                 })
-            except Exception as e:
-                print(f"Notification creation error: {str(e)}")
-                # Don't redirect here, continue with registration success
-            
-            flash('Registration successful! Please login.', 'success')
-            return redirect(url_for('login'))
-            
+                
+                session['user_id'] = str(user_id)
+                session['user_role'] = user_type
+                flash('Registration successful! You are now logged in.', 'success')
+                return redirect(url_for('dashboard'))
+                
+            except Exception as insert_error:
+                print("Insert error:", insert_error)
+                flash('Error saving user data', 'danger')
+                return redirect(url_for('register'))
+                
         except Exception as e:
-            print(f"Registration error: {str(e)}")
-            flash('An error occurred during registration. Please try again.', 'danger')
+            print("General error:", e)
+            traceback.print_exc()
+            flash(f'Registration error: {str(e)}', 'danger')
             return redirect(url_for('register'))
     
     return render_template('register.html', user_type=user_type)
+
+# @app.route('/register', methods=['GET', 'POST'])
+# def register():
+#     user_type = request.args.get('user_type', 'participant')
+    
+#     if request.method == 'POST':
+#         try:
+#             print("Debug: Form data received")  # Debug
+#             print("Form data:", request.form)   # Debug
+#             print("Files data:", request.files) # Debug
+            
+#             # Validate basic form data
+#             name = request.form.get('name', '').strip()
+#             email = request.form.get('email', '').strip().lower()
+#             password = request.form.get('password', '')
+#             user_type = request.form.get('user_type', 'participant')
+            
+#             if not name or not email or not password:
+#                 flash('All fields are required.', 'danger')
+#                 return redirect(url_for('register'))
+            
+#             # Check MongoDB connection
+#             existing_user = users.find_one({'email': email})
+#             if existing_user:
+#                 flash('Email already registered.', 'warning')
+#                 return redirect(url_for('register'))
+            
+#             # Handle file upload
+#             profile_pic_data = None
+#             if 'profile_pic' in request.files:
+#                 file = request.files['profile_pic']
+#                 if file.filename != '':
+#                     if not allowed_file(file.filename, {'png', 'jpg', 'jpeg', 'gif'}):
+#                         flash('Invalid file type.', 'warning')
+#                     else:
+#                         try:
+#                             file_content = file.read()
+#                             if len(file_content) > 2 * 1024 * 1024:
+#                                 flash('File too large (max 2MB)', 'warning')
+#                             else:
+#                                 profile_pic_data = {
+#                                     'data': Binary(file_content),
+#                                     'content_type': file.content_type,
+#                                     'filename': secure_filename(file.filename)
+#                                 }
+#                         except Exception as file_error:
+#                             print("File processing error:", file_error)
+#                             flash('Error processing profile picture', 'danger')
+            
+#             # Create user document
+#             new_user = {
+#                 'name': name,
+#                 'email': email,
+#                 'password': generate_password_hash(password),
+#                 'role': user_type,
+#                 'created_at': datetime.now(),
+#                 'profile_pic': profile_pic_data
+#             }
+            
+#             # Add role-specific fields
+#             try:
+#                 if user_type == 'participant':
+#                     skills = [s.strip() for s in request.form.get('skills', '').split(',') if s.strip()]
+#                     new_user['skills'] = skills
+#                 elif user_type == 'organizer':
+#                     new_user.update({
+#                         'organization': request.form.get('organization', '').strip(),
+#                         'bio': request.form.get('bio', '').strip(),
+#                         'verified': False
+#                     })
+#             except Exception as field_error:
+#                 print("Field processing error:", field_error)
+#                 flash('Error processing additional fields', 'danger')
+#                 return redirect(url_for('register'))
+            
+#             # Insert user
+#             try:
+#                 result = users.insert_one(new_user)
+#                 user_id = result.inserted_id
+                
+#                 # Add notification
+#                 notifications.insert_one({
+#                     'user_id': user_id,
+#                     'title': 'Welcome!',
+#                     'message': f'Welcome {name}!',
+#                     'type': 'welcome',
+#                     'read': False,
+#                     'created_at': datetime.now()
+#                 })
+                
+#                 flash('Registration successful!', 'success')
+#                 return redirect(url_for('login'))
+                
+#             except Exception as insert_error:
+#                 print("Insert error:", insert_error)
+#                 flash('Error saving user data', 'danger')
+#                 return redirect(url_for('register'))
+                
+#         except Exception as e:
+#             print("General error:", e)
+#             traceback.print_exc()
+#             flash(f'Registration error: {str(e)}', 'danger')
+#             return redirect(url_for('register'))
+    
+#     return render_template('register.html', user_type=user_type)
+
+# @app.route('/register', methods=['GET', 'POST'])
+# def register():
+#     user_type =j request.args.get('user_type', 'participant')
+    
+#     if request.method == 'POST':
+#         try:
+#             # Get and validate form data
+#             name = request.form.get('name', '').strip()
+#             email = request.form.get('email', '').strip().lower()
+#             password = request.form.get('password', '')
+#             user_type = request.form.get('user_type', 'participant')
+            
+#             # Validate required fields
+#             if not all([name, email, password]):
+#                 flash('All fields are required.', 'danger')
+#                 return redirect(url_for('register'))
+            
+#             # Check if email already exists
+#             existing_user = users.find_one({'email': email})
+#             if existing_user:
+#                 flash('Email already registered. Please login or use a different email.', 'warning')
+#                 return redirect(url_for('register'))
+            
+#             # Handle file upload to MongoDB
+#             profile_pic_data = None
+#             if 'profile_pic' in request.files:
+#                 file = request.files['profile_pic']
+#                 if file.filename != '':
+#                     # Validate file type
+#                     if not allowed_file(file.filename):
+#                         flash('Invalid file type for profile picture. Allowed types are: png, jpg, jpeg, gif', 'warning')
+#                     else:
+#                         # Read file content and store as Binary
+#                         file_content = file.read()
+#                         if len(file_content) > 2 * 1024 * 1024:  # 2MB limit
+#                             flash('Profile picture too large. Maximum size is 2MB.', 'warning')
+#                         else:
+#                             profile_pic_data = {
+#                                 'data': Binary(file_content),
+#                                 'content_type': file.content_type,
+#                                 'filename': secure_filename(file.filename)
+#                             }
+            
+#             # Create new user document
+#             new_user = {
+#                 'name': name,
+#                 'email': email,
+#                 'password': generate_password_hash(password),
+#                 'role': user_type,
+#                 'created_at': datetime.now(),
+#                 'profile_pic': profile_pic_data  # Store binary data in MongoDB
+#             }
+            
+#             if user_type == 'participant':
+#                 skills_input = request.form.get('skills', '').strip()
+#                 skills = [skill.strip() for skill in skills_input.split(',') if skill.strip()]
+#                 new_user['skills'] = skills
+#             elif user_type == 'organizer':
+#                 organization = request.form.get('organization', '').strip()
+#                 bio = request.form.get('bio', '').strip()
+#                 new_user['organization'] = organization
+#                 new_user['bio'] = bio
+#                 new_user['verified'] = False
+            
+#             # Insert the new user
+#             result = users.insert_one(new_user)
+#             user_id = result.inserted_id
+            
+#             # Create welcome notification
+#             try:
+#                 notifications.insert_one({
+#                     'user_id': user_id,
+#                     'title': 'Welcome to HackHub!',
+#                     'message': f'Welcome {name}! Thanks for joining our platform.',
+#                     'type': 'welcome',
+#                     'read': False,
+#                     'created_at': datetime.now()
+#                 })
+#             except Exception as e:
+#                 print(f"Notification creation error: {str(e)}")
+            
+#             flash('Registration successful! Please login.', 'success')
+#             return redirect(url_for('login'))
+            
+#         except Exception as e:
+#             print(f"Registration error: {str(e)}")
+#             flash('An error occurred during registration. Please try again.', 'danger')
+#             return redirect(url_for('register'))
+    
+#     return render_template('register.html', user_type=user_type)
+
+def allowed_file(filename, allowed_extensions=None):
+    if allowed_extensions is None:
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in allowed_extensions
+# def allowed_file(filename):
+#     return '.' in filename and \
+#            filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+# def allowed_file(filename):
+#     return '.' in filename and \
+#            filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+
+# @app.route('/register', methods=['GET', 'POST'])
+# def register():
+#     user_type = request.args.get('user_type', 'participant')
+    
+#     if request.method == 'POST':
+#         try:
+#             # Get and validate form data
+#             name = request.form.get('name', '').strip()
+#             email = request.form.get('email', '').strip().lower()
+#             password = request.form.get('password', '')
+#             user_type = request.form.get('user_type', 'participant')
+            
+#             # Validate required fields
+#             if not all([name, email, password]):
+#                 flash('All fields are required.', 'danger')
+#                 return redirect(url_for('register'))
+            
+#             # Check if email already exists
+#             existing_user = users.find_one({'email': email})
+#             if existing_user:
+#                 flash('Email already registered. Please login or use a different email.', 'warning')
+#                 return redirect(url_for('register'))
+            
+#             # Create new user document based on user type
+#             new_user = {
+#                 'name': name,
+#                 'email': email,
+#                 'password': generate_password_hash(password),
+#                 'role': user_type,
+#                 'created_at': datetime.now()
+#             }
+            
+#             # Add user type specific fields
+#             if user_type == 'participant':
+#                 skills_input = request.form.get('skills', '').strip()
+#                 skills = [skill.strip() for skill in skills_input.split(',') if skill.strip()]
+#                 new_user['skills'] = skills
+#             elif user_type == 'organizer':
+#                 organization = request.form.get('organization', '').strip()
+#                 bio = request.form.get('bio', '').strip()
+#                 new_user['organization'] = organization
+#                 new_user['bio'] = bio
+#                 new_user['verified'] = False  # Organizers need verification
+            
+#             # Insert the new user
+#             result = users.insert_one(new_user)
+#             user_id = result.inserted_id
+            
+#             # Create welcome notification
+#             try:
+#                 # You can send a welcome notification or email here
+#                 pass
+#             except Exception as notification_error:
+#                 print(f"Notification creation error: {str(notification_error)}")
+#                 # Don't redirect here, continue with registration success
+            
+#             # Automatically log in the user after registration
+#             session['user_id'] = str(user_id)
+#             session['user_role'] = user_type
+#             flash('Registration successful! You are now logged in.', 'success')
+#             return redirect(url_for('dashboard'))
+            
+#         except Exception as e:
+#             print(f"Registration error: {str(e)}")
+#             flash('An error occurred during registration. Please try again.', 'danger')
+#             return redirect(url_for('register'))
+    
+#     return render_template('register.html', user_type=user_type)
+
+
 
 @app.route('/logout')
 def logout():
@@ -358,14 +750,25 @@ def edit_profile():
                 update_data['password'] = generate_password_hash(new_password)
             
             # Handle profile image upload
-            if 'profile_image' in request.files and request.files['profile_image'].filename:
-                profile_image = request.files['profile_image']
-                if profile_image and allowed_file(profile_image.filename, ['jpg', 'jpeg', 'png']):
-                    filename = secure_filename(profile_image.filename)
+            if 'profile_pic' in request.files and request.files['profile_pic'].filename:
+                profile_pic = request.files['profile_pic']
+                if profile_pic and allowed_file(profile_pic.filename, ['jpg', 'jpeg', 'png', 'gif']):
+                    filename = secure_filename(profile_pic.filename)
                     unique_filename = f"profile_{user_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
-                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-                    profile_image.save(file_path)
-                    update_data['profile_image'] = unique_filename
+                    # Save to static/profile_pics
+                    profile_pic_folder = os.path.join('static', 'profile_pics')
+                    os.makedirs(profile_pic_folder, exist_ok=True)
+                    file_path = os.path.join(profile_pic_folder, unique_filename)
+                    try:
+                        profile_pic.save(file_path)
+                        update_data['profile_pic_path'] = f'profile_pics/{unique_filename}'
+                    except Exception as e:
+                        print(f"Profile pic upload error: {str(e)}")
+                        flash('Failed to upload profile picture. Please try again.', 'danger')
+                        return redirect(url_for('edit_profile'))
+                else:
+                    flash('Invalid file type for profile picture. Allowed: jpg, jpeg, png, gif.', 'danger')
+                    return redirect(url_for('edit_profile'))
             
             # Update user in database
             users.update_one({'_id': user_id}, {'$set': update_data})

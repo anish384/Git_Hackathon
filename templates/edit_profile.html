@@ -141,16 +141,16 @@
                         <!-- Profile Image Section -->
                         <div class="text-center mb-4">
                             <div class="profile-image-container">
-                                {% if user.profile_image %}
-                                <img src="{{ url_for('static', filename='uploads/' + user.profile_image) }}" alt="{{ user.name }}" class="profile-image">
+                                {% if user.profile_pic_path %}
+                                <img src="{{ url_for('static', filename=user.profile_pic_path) }}" alt="{{ user.name }}" class="profile-image">
                                 {% else %}
                                 <div class="profile-image-placeholder">
                                     <i class="fas fa-user"></i>
                                 </div>
                                 {% endif %}
-                                <label for="profile_image" class="profile-image-upload">
+                                <label for="profile_pic" class="profile-image-upload" title="Upload new profile picture">
                                     <i class="fas fa-camera"></i>
-                                    <input type="file" id="profile_image" name="profile_image" accept="image/*">
+                                    <input type="file" id="profile_pic" name="profile_pic" accept="image/*">
                                 </label>
                             </div>
                             <p class="text-muted small">Click the camera icon to upload a new profile picture</p>
@@ -262,39 +262,35 @@
 <script>
     // Preview profile image before upload
     document.addEventListener('DOMContentLoaded', function() {
-        const profileImageInput = document.getElementById('profile_image');
+        const profileImageInput = document.getElementById('profile_pic');
         const profileImage = document.querySelector('.profile-image');
         const profileImagePlaceholder = document.querySelector('.profile-image-placeholder');
         
-        profileImageInput.addEventListener('change', function() {
-            if (this.files && this.files[0]) {
-                const reader = new FileReader();
-                
-                reader.onload = function(e) {
-                    // Create image if it doesn't exist
-                    if (!profileImage) {
-                        const newImage = document.createElement('img');
-                        newImage.classList.add('profile-image');
-                        newImage.alt = "Profile Preview";
-                        
-                        if (profileImagePlaceholder) {
-                            profileImagePlaceholder.style.display = 'none';
-                            profileImagePlaceholder.parentNode.insertBefore(newImage, profileImagePlaceholder);
+        if (profileImageInput) {
+            profileImageInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        if (!profileImage) {
+                            const newImage = document.createElement('img');
+                            newImage.classList.add('profile-image');
+                            newImage.alt = "Profile Preview";
+                            if (profileImagePlaceholder) {
+                                profileImagePlaceholder.style.display = 'none';
+                                profileImagePlaceholder.parentNode.insertBefore(newImage, profileImagePlaceholder);
+                            }
+                            newImage.src = e.target.result;
+                        } else {
+                            profileImage.src = e.target.result;
+                            if (profileImagePlaceholder) {
+                                profileImagePlaceholder.style.display = 'none';
+                            }
                         }
-                        
-                        newImage.src = e.target.result;
-                    } else {
-                        profileImage.src = e.target.result;
-                        
-                        if (profileImagePlaceholder) {
-                            profileImagePlaceholder.style.display = 'none';
-                        }
-                    }
-                };
-                
-                reader.readAsDataURL(this.files[0]);
-            }
-        });
+                    };
+                    reader.readAsDataURL(this.files[0]);
+                }
+            });
+        }
     });
 </script>
 {% endblock %}

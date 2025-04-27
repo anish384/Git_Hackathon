@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beautiful Login/Register Buttons</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+        }
+        
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 400px;
+            width: 100%;
+            padding: 30px;
+        }
+        
+        .fancy-button {
+            position: relative;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .login-btn {
+            background: linear-gradient(135deg, #36d1dc, #5b86e5);
+            color: white;
+        }
+        
+        .register-btn {
+            background: linear-gradient(135deg, #ff8008, #ffc837);
+            color: white;
+        }
+        
+        .fancy-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .fancy-button:active {
+            transform: translateY(1px);
+            box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+        }
+        
+        .fancy-button:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: all 0.6s ease;
+        }
+        
+        .fancy-button:hover:before {
+            left: 100%;
+        }
+        
+        .icon {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+        }
+        
+        /* Variations */
+        .variation {
+            margin-top: 40px;
+            text-align: center;
+        }
+        
+        .variation h3 {
+            color: white;
+            margin-bottom: 20px;
+        }
+        
+        .outline-btn {
+            background: transparent;
+            border: 2px solid white;
+            color: white;
+        }
+        
+        .outline-btn.login-outline:hover {
+            background: rgba(54, 209, 220, 0.1);
+        }
+        
+        .outline-btn.register-outline:hover {
+            background: rgba(255, 128, 8, 0.1);
+        }
+        
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+        
+        .glass-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12 text-center mb-5">
+                <h1 class="text-white">Beautiful Login & Register Buttons</h1>
+                <p class="text-white">Choose from different button styles for your application</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            <!-- Gradient Buttons -->
+            <div class="col-md-4">
+                <div class="button-container">
+                    <h3 class="text-white text-center mb-4">Gradient Style</h3>
+                    
+                    <a href="{{ url_for('login') }}" class="fancy-button login-btn">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                            <polyline points="10 17 15 12 10 7"></polyline>
+                            <line x1="15" y1="12" x2="3" y2="12"></line>
+                        </svg>
+                        Login
+                    </a>
+                    
+                    <a href="{{ url_for('register') }}" class="fancy-button register-btn">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="8.5" cy="7" r="4"></circle>
+                            <line x1="20" y1="8" x2="20" y2="14"></line>
+                            <line x1="23" y1="11" x2="17" y2="11"></line>
+                        </svg>
+                        Register
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Outline Buttons -->
+            <div class="col-md-4">
+                <div class="button-container">
+                    <h3 class="text-white text-center mb-4">Outline Style</h3>
+                    
+                    <a href="{{ url_for('login') }}" class="fancy-button outline-btn login-outline">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                            <polyline points="10 17 15 12 10 7"></polyline>
+                            <line x1="15" y1="12" x2="3" y2="12"></line>
+                        </svg>
+                        Login
+                    </a>
+                    
+                    <a href="{{ url_for('register') }}" class="fancy-button outline-btn register-outline">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="8.5" cy="7" r="4"></circle>
+                            <line x1="20" y1="8" x2="20" y2="14"></line>
+                            <line x1="23" y1="11" x2="17" y2="11"></line>
+                        </svg>
+                        Register
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Glass Buttons -->
+            <div class="col-md-4">
+                <div class="button-container">
+                    <h3 class="text-white text-center mb-4">Glass Style</h3>
+                    
+                    <a href="{{ url_for('login') }}" class="fancy-button glass-btn">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                            <polyline points="10 17 15 12 10 7"></polyline>
+                            <line x1="15" y1="12" x2="3" y2="12"></line>
+                        </svg>
+                        Login
+                    </a>
+                    
+                    <a href="{{ url_for('register') }}" class="fancy-button glass-btn">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="8.5" cy="7" r="4"></circle>
+                            <line x1="20" y1="8" x2="20" y2="14"></line>
+                            <line x1="23" y1="11" x2="17" y2="11"></line>
+                        </svg>
+                        Register
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
